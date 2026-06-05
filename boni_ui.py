@@ -19,8 +19,8 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 JARVIS_URL = os.environ.get("JARVIS_URL", "http://127.0.0.1:8000")
 JARVIS_KEY = os.environ.get("JARVIS_KEY", "boni-local-key")
 TTS_PORT = 5050
-MODELO_BONI = os.environ.get("BONI_MODEL", "tinyllama:1.1b")
-BONI_TURBO_MODEL = os.environ.get("BONI_TURBO_MODEL", "tinyllama:1.1b")
+MODELO_BONI = os.environ.get("BONI_MODEL", "boni-rapido:latest")
+BONI_TURBO_MODEL = os.environ.get("BONI_TURBO_MODEL", "qwen3.5:2b")
 BONI_NUM_CTX = int(os.environ.get("BONI_NUM_CTX", "2048"))
 BONI_NUM_PREDICT = int(os.environ.get("BONI_NUM_PREDICT", "512"))
 HISTORIAL_PATH = os.path.expanduser("~/.boni/chat_history.json")
@@ -93,7 +93,8 @@ class AutoTune:
 
 class STMModules:
     HEDGES_ES = [
-        r"(?i)^(claro que si[,.]?\s*)",
+        r"(?i)^(claro que si[.,]?\s*)",
+        r"(?i)^(claro que sí[.,]?\s*)",
         r"(?i)^(por supuesto[,.]?\s*)",
         r"(?i)^(entendido[,.]?\s*)",
         r"(?i)^(desde luego[,.]?\s*)",
@@ -138,9 +139,9 @@ class STMModules:
 
 class GodmodeLocal:
     MODELOS = [
-        {"nombre": "RAPIDO",    "model": "tinyllama:1.1b",      "emoji": chr(0x1F535)},
-        {"nombre": "SMOL",      "model": "smollm2:1.7b",        "emoji": chr(0x1F7E3)},
-        {"nombre": "QWEN 3B",   "model": "qwen2.5:3b",          "emoji": chr(0x1F7E1)},
+        {"nombre": "BONI",      "model": "boni-rapido:latest",  "emoji": chr(0x1F535)},
+        {"nombre": "QWEN 3B",   "model": "qwen2.5:3b",          "emoji": chr(0x1F7E3)},
+        {"nombre": "DEEPSEEK",  "model": "deepseek-r1:8b",      "emoji": chr(0x1F7E1)},
         {"nombre": "GEMMA",     "model": "gemma3:4b",           "emoji": chr(0x1F7E2)},
     ]
 
