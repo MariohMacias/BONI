@@ -125,12 +125,43 @@ BONI/
 ├── 1_INSTALAR_BONI.bat      ← Instalación completa
 ├── 2_CONFIGURAR_BONI.bat    ← Configuración guiada
 ├── 3_INICIAR_BONI.bat       ← Control diario
+├── BONI.bat                 ← Lanzar UI de escritorio
 ├── BONI_panel.html          ← Dashboard visual (abrir en navegador)
 ├── BONI_system_prompt.txt   ← Personalidad de BONI
+├── boni_ui.py               ← UI de escritorio (PyQt6)
+├── ollama_proxy.py          ← Proxy para funcionalidad extra
+├── requirements.txt         ← Dependencias Python
+├── .env.example             ← Configuración de entorno (copiar a .env)
+├── .gitignore
+├── LICENSE                  ← MIT
 ├── README.md                ← Esta guía
-└── BONI_tools/
-    ├── tool_sistema.py      ← Herramienta: archivos y terminal
-    └── tool_memoria.py      ← Herramienta: memoria persistente
+├── BONI_tools/
+│   ├── tool_memoria.py      ← Memoria persistente
+│   ├── tool_sistema.py      ← Archivos y terminal
+│   ├── tool_pc_control.py   ← Control de mouse/teclado
+│   └── tool_navegador.py    ← Automatización de navegador
+├── voz/
+│   ├── clonar_voz.py        ← Clonación de voz TTS
+│   └── preparar_audios.py   ← Preparación de muestras
+└── *.{bat,ps1}              ← Scripts de instalación/control
+```
+
+### Instalación desde código fuente
+
+```bash
+# 1. Clonar
+git clone https://github.com/tuusuario/boni.git
+cd boni
+
+# 2. Instalar dependencias Python
+pip install -r requirements.txt
+
+# 3. Copiar y configurar entorno
+cp .env.example .env
+# Edita .env con tus valores
+
+# 4. Ejecutar
+python boni_ui.py
 ```
 
 ---
@@ -169,4 +200,4 @@ Esto te permitirá hablarle a BONI por WhatsApp y recibir respuestas del modelo 
 
 ---
 
-*BONI v1.0 — Creado por Mario Macías — Monterrey, México*
+*BONI v2.1 — Creado por Mario Macías — Monterrey, México*
