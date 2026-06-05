@@ -19,7 +19,10 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 JARVIS_URL = os.environ.get("JARVIS_URL", "http://127.0.0.1:8000")
 JARVIS_KEY = os.environ.get("JARVIS_KEY", "boni-local-key")
 TTS_PORT = 5050
-MODELO_BONI = "boni-rapido:latest"
+MODELO_BONI = os.environ.get("BONI_MODEL", "tinyllama:1.1b")
+BONI_TURBO_MODEL = os.environ.get("BONI_TURBO_MODEL", "tinyllama:1.1b")
+BONI_NUM_CTX = int(os.environ.get("BONI_NUM_CTX", "2048"))
+BONI_NUM_PREDICT = int(os.environ.get("BONI_NUM_PREDICT", "512"))
 HISTORIAL_PATH = os.path.expanduser("~/.boni/chat_history.json")
 
 W, H = 520, 580
@@ -135,9 +138,9 @@ class STMModules:
 
 class GodmodeLocal:
     MODELOS = [
-        {"nombre": "BONI",      "model": "boni-rapido:latest",  "emoji": chr(0x1F535)},
-        {"nombre": "QWEN 7B",   "model": "qwen2.5:7b",          "emoji": chr(0x1F7E3)},
-        {"nombre": "DEEPSEEK",  "model": "deepseek-r1:8b",      "emoji": chr(0x1F7E1)},
+        {"nombre": "RAPIDO",    "model": "tinyllama:1.1b",      "emoji": chr(0x1F535)},
+        {"nombre": "SMOL",      "model": "smollm2:1.7b",        "emoji": chr(0x1F7E3)},
+        {"nombre": "QWEN 3B",   "model": "qwen2.5:3b",          "emoji": chr(0x1F7E1)},
         {"nombre": "GEMMA",     "model": "gemma3:4b",           "emoji": chr(0x1F7E2)},
     ]
 
@@ -241,6 +244,7 @@ class BONIWindow(QWidget):
         self.godmode_active = False
         self.godmode_results = []
         self.godmode_loading = False
+        self.turbo_mode = True
         self.last_context = "casual"
         self.fade_alpha = 0
         self.token_buffer = ""
@@ -312,6 +316,8 @@ class BONIWindow(QWidget):
         a_webui.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("http://localhost:3000")))
         a_godmode = menu.addAction("GODMODE (Ctrl+G)")
         a_godmode.triggered.connect(self.toggle_godmode)
+        a_turbo = menu.addAction(f"{'DESACTIVAR' if self.turbo_mode else 'ACTIVAR'} Turbo (Ctrl+T)")
+        a_turbo.triggered.connect(self.toggle_turbo)
         a_status = menu.addAction("Estado (F1)")
         a_status.triggered.connect(self.mostrar_estado_sistema)
         menu.addSeparator()
@@ -596,12 +602,13 @@ class BONIWindow(QWidget):
             (chr(0x26A1), "GODMODE", 130),
             (chr(0x1F310), "WebUI", 220),
             (chr(0x1F4CA), "Estado", 310),
-            (chr(0x2716), "Minimizar", 400),
+            (chr(0x1F7E0), "Turbo", 370),
+            (chr(0x2716), "Salir", 430),
         ]
         f_icon = QFont("Segoe UI", 14)
         f_label = QFont("Consolas", 7)
         for sym, label, x in icons:
-            is_active = (label == "GODMODE" and self.godmode_active)
+            is_active = (label == "GODMODE" and self.godmode_active) or (label == "Turbo" and self.turbo_mode)
             col = ACENTO if is_active else QColor(0x7E, 0xC8, 0xE3, 160)
             painter.setPen(QPen(col, 1))
             painter.setFont(f_icon)
@@ -649,6 +656,9 @@ class BONIWindow(QWidget):
             return
 
         if mods == Qt.KeyboardModifier.ControlModifier:
+            if key == Qt.Key.Key_T:
+                self.toggle_turbo()
+                return
             if key == Qt.Key.Key_G:
                 self.toggle_godmode()
                 return
@@ -731,13 +741,16 @@ class BONIWindow(QWidget):
 
     def _run_normal(self, texto, params):
         try:
+            model = BONI_TURBO_MODEL if self.turbo_mode else MODELO_BONI
             payload = {
-                "model": MODELO_BONI,
+                "model": model,
                 "messages": self.conversation.copy(),
                 "stream": True,
                 "options": {
                     "temperature": params.get("temperature", 0.7),
                     "top_p": params.get("top_p", 0.9),
+                    "num_ctx": BONI_NUM_CTX,
+                    "num_predict": BONI_NUM_PREDICT,
                 }
             }
             r = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, stream=True, timeout=60)
@@ -836,6 +849,12 @@ class BONIWindow(QWidget):
         finally:
             QTimer.singleShot(2000, lambda: self.set_state("idle"))
 
+    def toggle_turbo(self):
+        self.turbo_mode = not self.turbo_mode
+        modelo_actual = BONI_TURBO_MODEL if self.turbo_mode else MODELO_BONI
+        msg = f"Turbo {'activado' if self.turbo_mode else 'desactivado'} ({modelo_actual})"
+        self.tray.showMessage("B.O.N.I.", msg, QSystemTrayIcon.MessageIcon.Information, 1500)
+
     def toggle_godmode(self):
         self.godmode_active = not self.godmode_active
         self.godmode.activo = self.godmode_active
@@ -853,6 +872,9 @@ class BONIWindow(QWidget):
 
         lines.append(f"Estado UI: {self.state.upper()}")
         lines.append(f"GODMODE: {'ACTIVO' if self.godmode_active else 'inactivo'}")
+        lines.append(f"Turbo: {'ACTIVO' if self.turbo_mode else 'inactivo'}")
+        modelo_actual = BONI_TURBO_MODEL if self.turbo_mode else MODELO_BONI
+        lines.append(f"Modelo: {modelo_actual}")
         lines.append(f"AutoTune: {self.last_context}")
         lines.append("")
 
@@ -931,8 +953,8 @@ class BONIWindow(QWidget):
             my = int(event.position().y())
 
             if bar_y <= my <= H:
-                button_centers = [40, 130, 220, 310, 400]
-                labels = ["Voz", "GODMODE", "WebUI", "Estado", "Minimizar"]
+                button_centers = [40, 130, 220, 310, 370, 430]
+                labels = ["Voz", "GODMODE", "WebUI", "Estado", "Turbo", "Salir"]
                 for x, lbl in zip(button_centers, labels):
                     if abs(mx - x) < 30:
                         if lbl == "Voz":
@@ -943,10 +965,10 @@ class BONIWindow(QWidget):
                             QDesktopServices.openUrl(QUrl("http://localhost:3000"))
                         elif lbl == "Estado":
                             self.mostrar_estado_sistema()
-                        elif lbl == "Minimizar":
-                            self.hide()
-                            self.tray.showMessage("B.O.N.I.", "Minimizado a bandeja",
-                                                  QSystemTrayIcon.MessageIcon.Information, 1500)
+                        elif lbl == "Turbo":
+                            self.toggle_turbo()
+                        elif lbl == "Salir":
+                            self.close()
                         return
 
             self.drag_pos = event.globalPosition().toPoint()
@@ -970,6 +992,8 @@ class BONIWindow(QWidget):
         )
         a_webui = menu.addAction("Abrir WebUI")
         a_webui.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("http://localhost:3000")))
+        a_turbo = menu.addAction(f"{'Desactivar' if self.turbo_mode else 'Activar'} Turbo")
+        a_turbo.triggered.connect(self.toggle_turbo)
         a_gm = menu.addAction(f"{'Desactivar' if self.godmode_active else 'Activar'} GODMODE")
         a_gm.triggered.connect(self.toggle_godmode)
         a_state = menu.addAction(f"Estado: {self.state.upper()}")
