@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Entorno
+.env
+*.local
+
+# Audio / Voz
+*.wav
+voz/output/
+voz/seleccion/
+voz/procesados/
+
+# Logs
+*.log
+boni_inicio.log
+
+# ZIPs / Instaladores
+*.zip
+*.exe
+*.msi
+boni_setup/
+
+# Windows
+*.lnk
+Desktop.ini
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# WSL
+wsl2/
+wsl_ip.txt
+
+# Cache
+.cache/
+
+# Debug / scripts temporales
+archivo/
+*.bak_*
+boni_zip.ps1
+boni_webui.py.bak_20260531

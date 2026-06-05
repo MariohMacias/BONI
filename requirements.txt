@@ -1,0 +1,20 @@
+# BONI - Business Operations Neural Intelligence
+# Core
+PyQt6>=6.5
+requests>=2.31
+
+# PC Control
+pillow>=10.0
+mouse>=0.7
+keyboard>=0.13
+
+# TTS / Audio
+pygame>=2.5
+pydub>=0.25
+
+# API Proxy
+Flask>=3.0
+Werkzeug>=3.0
+
+# Utilities
+pywin32>=305
