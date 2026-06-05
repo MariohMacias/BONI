@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""BONI WebUI - Professional OpenJarvis frontend"""
+import json, os, sys, time, threading, re
+from pathlib import Path
+from flask import Flask, render_template_string, request, jsonify, send_from_directory
+
+HISTORY_DIR = Path.home() / '.boni-webui'
+HISTORY_DIR.mkdir(exist_ok=True)
+OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://127.0.0.1:11434')
+JARVIS_URL = os.environ.get('JARVIS_URL', 'http://127.0.0.1:8080')
+JARVIS_KEY = os.environ.get('JARVIS_KEY', 'boni-local-key')
+PORT = int(os.environ.get('PORT', 3001))
+
+app = Flask(__name__)
+
+HTML = r'''<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BONI - OpenJarvis</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root{--bg:#0f0f0f;--surface:#1a1a2e;--accent:#e94560;--text:#e0e0e0;--muted:#666;--border:#2a2a3e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden}
+#sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+#sidebar h2{color:var(--accent);padding:16px;font-size:1em;border-bottom:1px solid var(--border)}
+#history{flex:1;overflow-y:auto;padding:8px}
+.hist-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:0.85em;margin-bottom:4px;transition:background .2s}
+.hist-item:hover{background:rgba(233,69,96,0.1)}
+.hist-item.active{background:rgba(233,69,96,0.2);border-left:3px solid var(--accent)}
+#sidebar-footer{padding:12px;border-top:1px solid var(--border);font-size:0.75em;color:var(--muted)}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.status-dot.ok{background:#4caf50}
+.status-dot.err{background:#f44336}
+.status-dot.warn{background:#ff9800}
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{background:var(--surface);padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{color:var(--accent);font-size:1.1em}
+header span{color:var(--muted);font-size:0.8em}
+select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.85em}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:0.8em;transition:all .2s}
+.btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.danger:hover{background:#f44336;border-color:#f44336}
+#chat{flex:1;overflow-y:auto;padding:20px 40px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:75%;padding:14px 18px;border-radius:12px;line-height:1.6;word-wrap:break-word}
+.msg h1,.msg h2,.msg h3{margin:8px 0 4px}
+.msg p{margin:4px 0}
+.msg code{background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;font-size:0.9em}
+.msg pre{background:rgba(0,0,0,0.4);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.msg pre code{background:none;padding:0}
+.msg ul,.msg ol{padding-left:20px;margin:4px 0}
+.msg table{border-collapse:collapse;margin:8px 0;width:100%}
+.msg td,.msg th{border:1px solid var(--border);padding:6px 10px;text-align:left}
+.msg th{background:var(--surface)}
+.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.bot{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:4px}
+.typing{opacity:.6;font-style:italic;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:.3}}
+#input-area{padding:16px 40px;background:var(--surface);border-top:1px solid var(--border)}
+.input-row{display:flex;gap:12px;max-width:900px;margin:0 auto}
+#input{flex:1;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1em;outline:none;resize:none;max-height:120px;font-family:inherit;line-height:1.4}
+#input:focus{border-color:var(--accent)}
+#send-btn{padding:14px 28px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:1em;transition:opacity .2s}
+#send-btn:hover{opacity:.85}
+#send-btn:disabled{opacity:.4;cursor:default}
+.toolbar{display:flex;gap:8px;align-items:center;margin-left:auto}
+#empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:12px}
+#empty-state h2{color:var(--accent);font-size:1.5em}
+@media(max-width:768px){ #sidebar{display:none} #chat{padding:12px 16px} #input-area{padding:12px 16px} .msg{max-width:90%}}
+</style>
+</head>
+<body>
+<div id="sidebar">
+<h2>BONI</h2>
+<div id="history"></div>
+<div id="sidebar-footer">
+<div><span class="status-dot ok" id="st-ollama"></span>Ollama</div>
+<div><span class="status-dot ok" id="st-proxy"></span>Proxy</div>
+<div><span class="status-dot ok" id="st-docker"></span>Open WebUI</div>
+<div style="margin-top:8px;font-size:0.9em" id="ip-display"></div>
+</div>
+</div>
+<div id="main">
+<header>
+<h1>BONI</h1><span>Ollama · Proxy</span>
+<select id="model-select"></select>
+<div class="toolbar">
+<button class="btn" onclick="loadHistory()">Historial</button>
+<button class="btn danger" onclick="clearChat()">Limpiar</button>
+</div>
+</header>
+<div id="chat">
+<div id="empty-state">
+<h2>B.O.N.I. v2.1</h2>
+<p>Asistente socio estratégico · OpenJarvis + Ollama</p>
+<p style="font-size:0.85em">Escribe algo para comenzar</p>
+</div>
+</div>
+<div id="input-area">
+<div class="input-row">
+<textarea id="input" rows="1" placeholder="Escribe tu mensaje..." autofocus></textarea>
+<button id="send-btn" onclick="sendMsg()">Enviar</button>
+</div>
+</div>
+</div>
+<script>
+let currentChatId=null,streaming=false,currentModel='boni-rapido:latest';
+
+document.getElementById('input').addEventListener('keydown',e=>{
+if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+
+document.getElementById('input').addEventListener('input',function(){
+this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'});
+
+async function loadModels(){
+try{
+const r=await fetch('/api/models');const d=await r.json();
+const sel=document.getElementById('model-select');sel.innerHTML='';
+d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.id;sel.appendChild(o)});
+if(d.models.find(m=>m.id==='boni-rapido:latest'))sel.value='boni-rapido:latest';
+currentModel=sel.value;
+sel.onchange=()=>{currentModel=sel.value};
+}catch(e){console.error('models:',e)}
+}
+
+async function checkStatus(){
+try{
+const r=await fetch('/api/status');const d=await r.json();
+['ollama','proxy','docker'].forEach(s=>{
+const el=document.getElementById('st-'+s);
+if(el){el.className='status-dot '+(d.status[s]?'ok':'err')}});
+document.getElementById('ip-display').textContent=d.ip||'';
+}catch(e){}
+}
+
+async function sendMsg(){
+if(streaming)return;
+const input=document.getElementById('input');const msg=input.value.trim();
+if(!msg)return;input.value='';input.style.height='auto';
+streaming=true;document.getElementById('send-btn').disabled=true;
+
+const chat=document.getElementById('chat');
+const empty=document.getElementById('empty-state');
+if(empty)empty.remove();
+
+addMsg(msg,'user');
+
+const typingDiv=addMsg('...','bot typing');
+const respDiv=typingDiv;
+
+try{
+const r=await fetch('/api/chat',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({model:currentModel,message:msg,chat_id:currentChatId})
+});
+const reader=r.body.getReader();const decoder=new TextDecoder();
+let content='';respDiv.className='msg bot';respDiv.textContent='';
+
+const processChunk=async({done,value})=>{
+if(done)return;
+const text=decoder.decode(value,{stream:true});
+const lines=text.split('\n').filter(l=>l.startsWith('data: '));
+for(const line of lines){
+try{
+const d=JSON.parse(line.slice(6));
+if(d.content){content+=d.content;respDiv.innerHTML=marked.parse(content)}
+if(d.done&&d.chat_id)currentChatId=d.chat_id;
+}catch(e){}
+}
+return reader.read().then(processChunk);
+};
+await reader.read().then(processChunk);
+chat.scrollTop=chat.scrollHeight;
+}catch(e){
+respDiv.className='msg bot';respDiv.textContent='Error: '+e.message;
+}
+streaming=false;document.getElementById('send-btn').disabled=false;
+document.getElementById('input').focus();
+}
+
+function addMsg(text,cls){
+const chat=document.getElementById('chat');
+const div=document.createElement('div');
+div.className='msg '+cls;
+if(cls==='bot'&&text!=='...')div.innerHTML=marked.parse(text);
+else div.textContent=text;
+chat.appendChild(div);chat.scrollTop=chat.scrollHeight;
+return div;
+}
+
+async function loadHistory(){
+try{
+const r=await fetch('/api/history');const d=await r.json();
+const h=document.getElementById('history');h.innerHTML='';
+d.chats?.forEach(c=>{
+const div=document.createElement('div');div.className='hist-item';
+div.textContent=c.title||c.id.slice(0,8);
+if(c.id===currentChatId)div.classList.add('active');
+div.onclick=async()=>{
+currentChatId=c.id;
+document.querySelectorAll('.hist-item').forEach(el=>el.classList.remove('active'));
+div.classList.add('active');
+const r2=await fetch('/api/history/'+c.id);const d2=await r2.json();
+const chat=document.getElementById('chat');
+const empty=document.getElementById('empty-state');
+if(empty)empty.remove();chat.innerHTML='';
+d2.messages?.forEach(m=>addMsg(m.content,m.role));
+};
+h.appendChild(div)});
+}catch(e){}
+}
+
+async function clearChat(){
+currentChatId=null;
+const chat=document.getElementById('chat');chat.innerHTML=`
+<div id="empty-state">
+<h2>B.O.N.I. v2.1</h2>
+<p>Asistente socio estratégico · OpenJarvis + Ollama</p>
+<p style="font-size:0.85em">Escribe algo para comenzar</p>
+</div>`;
+document.querySelectorAll('.hist-item').forEach(el=>el.classList.remove('active'));
+}
+
+loadModels();checkStatus();loadHistory();
+setInterval(checkStatus,15000);
+</script>
+</body>
+</html>'''
+
+# History storage
+class ChatHistory:
+    def __init__(self):
+        self.chats = {}
+        self._load()
+    def _path(self, cid):
+        return HISTORY_DIR / f'{cid}.json'
+    def _load(self):
+        for f in HISTORY_DIR.glob('*.json'):
+            try:
+                data = json.loads(f.read_text())
+                self.chats[f.stem] = data
+            except: pass
+    def create(self, cid, title='Nueva conversacion'):
+        self.chats[cid] = {'id': cid, 'title': title, 'messages': []}
+        self._save(cid)
+        return self.chats[cid]
+    def add_message(self, cid, role, content):
+        if cid not in self.chats:
+            self.create(cid)
+        self.chats[cid]['messages'].append({'role': role, 'content': content})
+        if len(self.chats[cid]['messages']) == 1 and role == 'user':
+            self.chats[cid]['title'] = content[:50]
+        self._save(cid)
+    def get(self, cid):
+        return self.chats.get(cid)
+    def list(self):
+        return sorted(self.chats.values(), key=lambda x: x.get('updated_at', ''), reverse=True)
+    def _save(self, cid):
+        if cid in self.chats:
+            self.chats[cid]['updated_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            self._path(cid).write_text(json.dumps(self.chats[cid], indent=2))
+
+history = ChatHistory()
+
+@app.route('/')
+def index():
+    return render_template_string(HTML)
+
+@app.route('/api/models')
+def api_models():
+    import requests as req
+    try:
+        r = req.get(f'{OLLAMA_URL}/api/tags', timeout=5)
+        data = r.json()
+        models = [{'id': m['name']} for m in data.get('models', [])]
+        return jsonify({'models': models})
+    except:
+        pass
+    try:
+        r = req.get(f'{JARVIS_URL}/v1/models', headers={'Authorization': f'Bearer {JARVIS_KEY}'}, timeout=5)
+        return jsonify(r.json())
+    except:
+        return jsonify({'models': [{'id': 'boni-rapido:latest'}, {'id': 'qwen2.5:3b'}]})
+
+@app.route('/api/status')
+def api_status():
+    import requests as req
+    ollama = docker = proxy = False
+    ip = ''
+    try:
+        r = req.get(f'{JARVIS_URL}/health', timeout=3)
+        proxy = r.status_code == 200
+    except: pass
+    try:
+        r = req.get('http://localhost:11434/api/tags', timeout=3)
+        ollama = r.status_code == 200
+    except: pass
+    try:
+        import subprocess
+        r = subprocess.run(['wsl', '-d', 'Ubuntu-22.04', 'hostname', '-I'], capture_output=True, text=True, timeout=5)
+        ip = r.stdout.strip().split()[0] if r.stdout.strip() else ''
+    except: pass
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        docker = s.connect_ex(('localhost', 3000)) == 0
+        s.close()
+    except: pass
+    return jsonify({'status': {'ollama': ollama, 'proxy': proxy, 'docker': docker}, 'ip': ip})
+
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    import requests as req
+    data = request.get_json()
+    model = data.get('model', 'boni-rapido:latest')
+    message = data.get('message', '')
+    chat_id = data.get('chat_id')
+
+    if not chat_id:
+        import uuid
+        chat_id = str(uuid.uuid4())
+        history.create(chat_id)
+
+    history.add_message(chat_id, 'user', message)
+
+    def generate():
+        payload = {
+            'model': model,
+            'messages': history.get(chat_id)['messages'],
+            'stream': True
+        }
+        # Try Ollama first
+        try:
+            r = req.post(f'{OLLAMA_URL}/api/chat',
+                json=payload,
+                stream=True, timeout=60)
+            full_content = ''
+            for line in r.iter_lines():
+                if line:
+                    line = line.decode()
+                    d = json.loads(line)
+                    msg = d.get('message', {})
+                    content = msg.get('content', '')
+                    if content:
+                        full_content += content
+                        yield f'data: {json.dumps({"content": content, "done": False, "chat_id": chat_id})}\n\n'
+                    if d.get('done'):
+                        break
+            history.add_message(chat_id, 'assistant', full_content)
+            yield f'data: {json.dumps({"content": "", "done": True, "chat_id": chat_id})}\n\n'
+            return
+        except:
+            pass
+        # Fallback to proxy
+        try:
+            r = req.post(f'{JARVIS_URL}/v1/chat/completions',
+                json=payload,
+                headers={'Authorization': f'Bearer {JARVIS_KEY}'},
+                stream=True, timeout=120)
+            full_content = ''
+            for line in r.iter_lines():
+                if line:
+                    line = line.decode()
+                    if line.startswith('data: '):
+                        d = json.loads(line[6:])
+                        delta = d.get('choices', [{}])[0].get('delta', {})
+                        content = delta.get('content', '')
+                        if content:
+                            full_content += content
+                            yield f'data: {json.dumps({"content": content, "done": False, "chat_id": chat_id})}\n\n'
+            history.add_message(chat_id, 'assistant', full_content)
+            yield f'data: {json.dumps({"content": "", "done": True, "chat_id": chat_id})}\n\n'
+        except Exception as e:
+            yield f'data: {json.dumps({"error": str(e)})}\n\n'
+
+    return app.response_class(generate(), mimetype='text/event-stream')
+
+@app.route('/api/history')
+def api_history():
+    return jsonify({'chats': history.list()})
+
+@app.route('/api/history/<chat_id>')
+def api_history_get(chat_id):
+    chat = history.get(chat_id)
+    if chat:
+        return jsonify(chat)
+    return jsonify({'error': 'not found'}), 404
+
+if __name__ == '__main__':
+    print(f'[OK] BONI Web UI: http://0.0.0.0:{PORT}')
+    print(f'     Backend: {JARVIS_URL}')
+    app.run(host='0.0.0.0', port=PORT, debug=False, threaded=True)

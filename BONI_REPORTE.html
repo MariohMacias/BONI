@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>B.O.N.I. v2.1 — Reporte Completo de Capacidades</title>
+<style>
+:root {
+  --bg: #000008;
+  --surface: #050510;
+  --border: #1A4A7A;
+  --accent: #00D4FF;
+  --ice: #7EC8E3;
+  --text: #E8F4FD;
+  --muted: #4A6A8A;
+  --success: #00D48A;
+  --warn: #FFB800;
+  --danger: #FF4466;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.7;
+  padding: 0;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+h1 {
+  color: var(--accent);
+  font-size: 2em;
+  text-align: center;
+  padding: 40px 0 8px;
+  font-weight: 300;
+  letter-spacing: 2px;
+}
+h1 small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.5em;
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+h2 {
+  color: var(--accent);
+  font-size: 1.3em;
+  padding: 24px 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin: 32px 0 16px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+h2 .count { color: var(--muted); font-size: 0.7em; font-weight: 300; }
+h3 {
+  color: var(--ice);
+  font-size: 1.1em;
+  margin: 20px 0 10px;
+  font-weight: 400;
+}
+h4 {
+  color: var(--muted);
+  font-size: 0.95em;
+  margin: 14px 0 6px;
+}
+p { margin: 8px 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.9em;
+}
+th {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+}
+tr:hover td { background: rgba(74, 155, 199, 0.05); }
+
+/* Status badges */
+.status-ok { color: var(--success); font-weight: 600; }
+.status-warn { color: var(--warn); font-weight: 600; }
+.status-err { color: var(--danger); font-weight: 600; }
+.status-pend { color: var(--warn); font-weight: 600; }
+
+/* Code */
+code {
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(26, 74, 122, 0.4);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Cascadia Code', monospace;
+  font-size: 0.85em;
+  color: var(--ice);
+}
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+  font-family: 'Consolas', 'Cascadia Code', monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+pre code { background: none; border: none; padding: 0; }
+
+/* Lists */
+ul, ol { padding-left: 24px; margin: 8px 0; }
+li { margin: 4px 0; }
+
+/* Blockquotes / highlight boxes */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: rgba(0, 212, 255, 0.04);
+  padding: 12px 16px;
+  margin: 12px 0;
+  border-radius: 0 8px 8px 0;
+  color: var(--ice);
+}
+
+/* Section dividers */
+.section-divider {
+  text-align: center;
+  color: var(--border);
+  font-size: 0.8em;
+  letter-spacing: 4px;
+  padding: 12px 0;
+}
+
+/* Hero badge */
+.hero {
+  text-align: center;
+  padding: 12px 0 24px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+/* Emoji badges */
+.badge-active { color: var(--success); }
+.badge-pending { color: var(--warn); }
+.badge-missing { color: var(--danger); }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+/* Summary boxes */
+.summary-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px 0;
+}
+.summary-box .row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(26, 74, 122, 0.3);
+}
+.summary-box .row:last-child { border-bottom: none; }
+.summary-box .label { color: var(--muted); }
+.summary-box .value { color: var(--text); }
+
+/* TOTALS ROW */
+.totals {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin: 24px 0;
+}
+.total-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  text-align: center;
+  min-width: 120px;
+}
+.total-card .num { font-size: 2em; font-weight: 300; }
+.total-card .lbl { color: var(--muted); font-size: 0.8em; margin-top: 2px; }
+.total-card.active .num { color: var(--success); }
+.total-card.pending .num { color: var(--warn); }
+.total-card.missing .num { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>B.O.N.I. v2.1<small>Reporte Completo de Capacidades</small></h1>
+<p class="hero">31 de mayo de 2026 · Windows 11 + WSL2 (Ubuntu 22.04) · Ollama</p>
+
+<div class="totals">
+  <div class="total-card active">
+    <div class="num">8</div>
+    <div class="lbl">Activas</div>
+  </div>
+  <div class="total-card pending">
+    <div class="num">7</div>
+    <div class="lbl">Pendientes</div>
+  </div>
+  <div class="total-card missing">
+    <div class="num">3</div>
+    <div class="lbl">No disponibles</div>
+  </div>
+</div>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 1 — RESUMEN EJECUTIVO</h2>
+
+<table>
+<tr><th>Componente</th><th>Versión</th><th>Estado</th><th>Puerto / URL</th></tr>
+<tr><td>Ollama</td><td>Último</td><td class="status-ok">✅ Activo</td><td><code>localhost:11434</code></td></tr>
+<tr><td>boni-rapido (Qwen2 3.1B)</td><td>Latest</td><td class="status-ok">✅ Descargado</td><td>Ollama</td></tr>
+<tr><td>OpenJarvis</td><td>1.0.2</td><td class="status-warn">⚠️ Serve lento</td><td><code>WSL:8080</code></td></tr>
+<tr><td>boni_ui.py (Qt6)</td><td>2.1</td><td class="status-ok">✅ Listo</td><td>Ventana 500×500</td></tr>
+<tr><td>boni_webui.py (Flask)</td><td>2.1</td><td class="status-ok">✅ Listo</td><td><code>localhost:3001</code></td></tr>
+<tr><td>TTS Server (voz)</td><td>—</td><td class="status-pend">⏳ Pendiente</td><td><code>WSL:5050</code></td></tr>
+<tr><td>Docker Desktop</td><td>—</td><td class="status-err">❌ No iniciado</td><td>—</td></tr>
+<tr><td>Open WebUI</td><td>latest</td><td class="status-err">❌ No disponible</td><td><code>localhost:3000</code></td></tr>
+<tr><td>OpenHands</td><td>—</td><td class="status-err">❌ No iniciado</td><td><code>localhost:3002</code></td></tr>
+<tr><td>Rust extension</td><td>0.1.0</td><td class="status-warn">⚙️ Compilando</td><td>WSL</td></tr>
+<tr><td>SQLite Memoria</td><td>—</td><td class="status-warn">⚠️ Parcial</td><td><code>~/.boni/memoria.json</code></td></tr>
+<tr><td>browser-use</td><td>—</td><td class="status-err">❌ No instalado</td><td>WSL</td></tr>
+<tr><td>Node.js</td><td>—</td><td class="status-err">❌ No detectado</td><td>—</td></tr>
+<tr><td>11 modelos Ollama</td><td>Variados</td><td class="status-ok">✅ Disponibles</td><td><code>localhost:11434</code></td></tr>
+<tr><td>2 agentes OpenJarvis</td><td>—</td><td class="status-ok">✅ Creados</td><td>WSL</td></tr>
+</table>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 2 — CAPACIDADES ACTIVAS <span class="badge-active">✅</span></h2>
+
+<h3>Chat con IA — Interfaz Holográfica (boni_ui.py)</h3>
+<p><strong>Qué hace:</strong> Ventana circular translúcida 500×500px estilo JARVIS-IA, con orbe 3D pulsante, anillos concéntricos con marcas de tick, 22 partículas orbitales, scanlines, viñeta, y texto de respuesta. Se conecta directamente a Ollama en <code>localhost:11434</code> para chat streaming.</p>
+<p><strong>Cómo usarla:</strong></p>
+<ol>
+<li>Abre PowerShell y ejecuta: <code>python "C:\Users\nosoy\OneDrive\Desktop\boni\boni_ui.py"</code></li>
+<li>La ventana aparece en la esquina superior derecha de la pantalla</li>
+<li>Presiona cualquier tecla alfanumérica → aparece el campo de texto oculto</li>
+<li>Escribe tu mensaje y presiona Enter → el orbe se ilumina y BONI responde</li>
+<li>Presiona Escape para ocultar el campo de texto</li>
+</ol>
+<blockquote><strong>Ejemplo:</strong> Presiona 'H' → aparece input → escribe "¿Capital de Francia?" → orbe pulsa → responde "París"</blockquote>
+<p><strong>Limitaciones:</strong> El historial no persiste al cerrar. Sin scroll de historial. Máximo 3 líneas de respuesta visibles.</p>
+
+<h3>Chat con IA — Web UI (boni_webui.py)</h3>
+<p><strong>Qué hace:</strong> Servidor Flask en puerto 3001 con interfaz web moderna, sidebar con historial persistente en disco, Markdown renderizado, streaming SSE, selector de modelo.</p>
+<p><strong>Cómo usarla:</strong> <code>python "C:\Users\nosoy\OneDrive\Desktop\boni\boni_webui.py"</code> → abrir <code>http://localhost:3001</code></p>
+<p><strong>Limitaciones:</strong> Backend apunta a jarvis serve (<code>WSL:8080</code>) no a Ollama directo.</p>
+
+<h3>Chat con IA — Ollama Directo (via API)</h3>
+<p><strong>Qué hace:</strong> boni_ui.py intenta primero <code>localhost:11434/api/chat</code>, si falla usa <code>localhost:8080/v1/chat/completions</code> como fallback.</p>
+
+<h3>11 Modelos Locales</h3>
+<table>
+<tr><th>Modelo</th><th>Parámetros</th><th>Cuantización</th></tr>
+<tr><td>boni-rapido:latest</td><td>3.1B</td><td>Q4_K_M</td></tr>
+<tr><td>qwen2.5:1.5b</td><td>1.5B</td><td>Q4_K_M</td></tr>
+<tr><td>qwen2.5:3b</td><td>3.1B</td><td>Q4_K_M</td></tr>
+<tr><td>qwen2.5:7b</td><td>7.6B</td><td>Q4_K_M</td></tr>
+<tr><td>qwen3.5:9b</td><td>9.7B</td><td>Q4_K_M</td></tr>
+<tr><td>gemma3:1b</td><td>1B</td><td>Q4_K_M</td></tr>
+<tr><td>gemma3:4b</td><td>4.3B</td><td>Q4_K_M</td></tr>
+<tr><td>gemma4:latest</td><td>8.0B</td><td>Q4_K_M</td></tr>
+<tr><td>smollm2:1.7b</td><td>1.7B</td><td>Q8_0</td></tr>
+<tr><td>tinyllama:1.1b</td><td>1B</td><td>Q4_0</td></tr>
+<tr><td>deepseek-r1:8b</td><td>8.2B</td><td>Q4_K_M</td></tr>
+</table>
+
+<h3>Control de PC — Mouse y Teclado</h3>
+<p><strong>Qué hace:</strong> Control de mouse (clic, mover, scroll, doble clic) y teclado (escribir texto, combinaciones).</p>
+<p><strong>10 funciones:</strong> <code>tomar_screenshot()</code>, <code>click()</code>, <code>escribir()</code>, <code>tecla()</code>, <code>mover_mouse()</code>, <code>posicion_mouse()</code>, <code>scroll()</code>, <code>resolucion_pantalla()</code>, <code>abrir_app()</code>, <code>ejecutar_comando()</code>.</p>
+
+<h3>Ejecución de Comandos en Windows y WSL</h3>
+<p><strong>Qué hace:</strong> Ejecuta comandos cmd en Windows o bash en WSL con timeout 30s y bloqueo de comandos destructivos.</p>
+
+<h3>Memoria Persistente entre Sesiones</h3>
+<p><strong>Qué hace:</strong> Guarda hechos, notas y tareas en <code>~/.boni/memoria.json</code>. Persiste al cerrar.</p>
+<p><strong>8 funciones:</strong> <code>recordar_hecho()</code>, <code>obtener_hecho()</code>, <code>guardar_nota()</code>, <code>buscar_notas()</code>, <code>listar_hechos()</code>, <code>agregar_tarea()</code>, <code>ver_tareas()</code>, <code>completar_tarea()</code>.</p>
+
+<h3>2 Agentes OpenJarvis Especializados</h3>
+<table>
+<tr><th>Agente</th><th>Tipo</th><th>Estado</th></tr>
+<tr><td>boni-operative</td><td>monitor_operational</td><td class="status-ok">Idle</td></tr>
+<tr><td>boni-research</td><td>deep_research</td><td class="status-ok">Idle</td></tr>
+</table>
+
+<h3>61 Skills de OpenJarvis</h3>
+<p><strong>Qué hace:</strong> 61 skills preinstaladas: <code>coding-agent</code>, <code>summarize</code>, <code>github</code>, <code>slack</code>, <code>notion</code>, <code>weather</code>, <code>spotify-player</code>, <code>diagram-maker</code>, <code>arxiv</code>, <code>skill-creator</code>, y más.</p>
+
+<h3>System Tray y Atajos de Teclado</h3>
+<table>
+<tr><th>Tecla</th><th>Acción</th></tr>
+<tr><td>Alfanumérica</td><td>Muestra campo de texto</td></tr>
+<tr><td>Enter</td><td>Envía mensaje</td></tr>
+<tr><td>Escape</td><td>Oculta campo de texto</td></tr>
+<tr><td>Ctrl+W</td><td>Abre Open WebUI</td></tr>
+<tr><td>Insert</td><td>Activa/desactiva modo escucha</td></tr>
+<tr><td>Clic sostenido</td><td>Arrastrar ventana</td></tr>
+</table>
+
+<h3>OpenJarvis CLI Completo</h3>
+<p><strong>40+ comandos:</strong> <code>jarvis chat</code>, <code>jarvis ask</code>, <code>jarvis serve</code>, <code>jarvis start/stop</code>, <code>jarvis agents</code>, <code>jarvis skill</code>, <code>jarvis memory</code>, <code>jarvis doctor</code>, <code>jarvis config</code>, <code>jarvis model</code>, etc.</p>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 3 — CAPACIDADES PENDIENTES <span class="badge-pending">⏳</span></h2>
+
+<h3>Voz Clonada de BONI (TTS Personalizado)</h3>
+<p><strong>Qué falta:</strong> Audios de referencia de Mario (.opus de WhatsApp) en <code>voz\originales\</code>.</p>
+<p><strong>Cómo activarla:</strong> Copiar audios → ejecutar <code>preparar_audios.py</code> → ejecutar <code>clonar_voz.py</code> en WSL.</p>
+<p><strong>Tiempo estimado:</strong> 30 minutos (incluye descarga 1GB modelo XTTS v2).</p>
+
+<h3>TTS Server (Voz de BONI)</h3>
+<p><strong>Qué falta:</strong> Script creado en <code>/root/boni_voice/tts_server.py</code> pero no iniciado. Depende de voz clonada.</p>
+<pre>wsl -d Ubuntu-22.04 -- nohup python3.10 /root/boni_voice/tts_server.py > ~/.boni/tts.log 2>&1 &</pre>
+<p><strong>Tiempo estimado:</strong> 2 min inicio + carga modelo.</p>
+
+<h3>OpenHands (Agente de Código)</h3>
+<p><strong>Qué falta:</strong> Docker pull no ejecutado. Imagen ~2GB.</p>
+<pre>docker pull ghcr.io/all-hands-ai/openhands:latest
+docker run -d --name openhands -p 3002:3000 ghcr.io/all-hands-ai/openhands:latest</pre>
+
+<h3>pyautogui + pynput en WSL</h3>
+<p><strong>Qué falta:</strong> Compilador MSVC. Alternativa: ya funciona vía <code>mouse</code> + <code>keyboard</code> + <code>ctypes</code> desde Windows.</p>
+
+<h3>Inicio Automático (Tarea Programada)</h3>
+<pre>schtasks /Create /SC ONLOGON /TN "BONI_Inicio" /TR "powershell.exe -File `"C:\...\BONI_INICIO.ps1`"" /DELAY 0001:00 /F</pre>
+
+<h3>Docker Desktop + Open WebUI</h3>
+<p><strong>Qué falta:</strong> Docker Desktop no iniciado. Instalado en <code>C:\Program Files\Docker\Docker\Docker Desktop.exe</code>.</p>
+
+<h3>browser-use (Navegación Web)</h3>
+<pre>wsl -d Ubuntu-22.04 -- pip3 install browser-use
+wsl -d Ubuntu-22.04 -- python3.12 -m playwright install chromium</pre>
+
+<h3>jarvis serve (Servidor API)</h3>
+<p><strong>Qué falta:</strong> Servidor acepta TCP pero no responde requests. Posible conflicto con skills.</p>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 4 — CAPACIDADES NO DISPONIBLES <span class="badge-missing">❌</span></h2>
+
+<h3>Reconocimiento de Voz (Speech-to-Text)</h3>
+<p><strong>Por qué no:</strong> Tecla Insert es decorativa. No hay captura de micrófono real.</p>
+<p><strong>Solución:</strong> Integrar <code>speech_recognition</code> o Whisper (skill ya instalada). 2-4 horas de trabajo.</p>
+
+<h3>Auto-programador Sandbox</h3>
+<p><strong>Por qué no:</strong> <code>boni_sandbox.py</code> no existe.</p>
+<p><strong>Solución:</strong> Crear sandbox con Docker o <code>subprocess</code> restringido. 3-5 horas.</p>
+
+<h3>Canales de Mensajería (WhatsApp, iMessage, Slack)</h3>
+<p><strong>Por qué no:</strong> Requieren Node.js 22+ (no instalado).</p>
+<p><strong>Solución:</strong> Instalar Node.js + configurar APIs. 2-3 horas.</p>
+
+<h3>Entrenamiento SFT/GRPO</h3>
+<p><strong>Por qué no:</strong> torch desinstalado de WSL.</p>
+<p><strong>Solución:</strong> Reinstalar torch en venv separado. 1 hora + 4GB.</p>
+
+<h3>Indexación Vectorial (SQLite + Rust)</h3>
+<p><strong>Por qué no:</strong> Rust extension compilando. <code>~/boni_docs</code> no existe.</p>
+<p><strong>Solución:</strong> <code>maturin develop</code> + crear docs. 10 min.</p>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 5 — GUÍA DE USO DIARIO</h2>
+
+<h3>Iniciar BONI</h3>
+<ol>
+<li>Verificar Ollama: <code>curl.exe http://localhost:11434/api/tags</code></li>
+<li>Iniciar interfaz holográfica: <code>python boni_ui.py</code></li>
+<li>Alternativa web: <code>python boni_webui.py</code> → <code>http://localhost:3001</code></li>
+<li>Auto-inicio: <code>powershell -ExecutionPolicy Bypass -File BONI_INICIO.ps1</code></li>
+</ol>
+
+<h3>Hablarle por Voz</h3>
+<p>Actualmente solo texto. Tecla Insert es placeholder visual. Cuando el TTS esté listo: Insert → hablar → respuesta con voz clonada.</p>
+
+<h3>Pedirle que Ejecute Código</h3>
+<pre>
+Usuario: "Ejecuta python -c 'print(\"hola\")'"
+→ BONI usa tool_sistema.py → responde con stdout
+</pre>
+
+<h3>Pedirle que Investigue</h3>
+<pre>
+# Simple: preguntar directo
+# Profundo: wsl jarvis agent run boni-research "tema"
+# Skills: arxiv, summarize, weather
+</pre>
+
+<h3>Pedirle que Recuerde</h3>
+<pre>
+Usuario: "Recuerda que mi cumpleaños es 15 de marzo"
+→ BONI guarda en ~/.boni/memoria.json
+Usuario: "¿Cuándo es mi cumpleaños?"
+→ BONI: "15 de marzo"
+</pre>
+
+<h3>Cerrar BONI</h3>
+<p>Menú contextual → "Salir", o Ctrl+Q, o desde system tray.</p>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 6 — ATAJOS Y COMANDOS RÁPIDOS</h2>
+
+<table>
+<tr><th>Atajo / Comando</th><th>Acción</th></tr>
+<tr><td><code>Alfanumérica</code></td><td>Muestra input oculto</td></tr>
+<tr><td><code>Enter</code></td><td>Envía mensaje</td></tr>
+<tr><td><code>Escape</code></td><td>Oculta input</td></tr>
+<tr><td><code>Ctrl+W</code></td><td>Abre Open WebUI</td></tr>
+<tr><td><code>Insert</code></td><td>Modo escucha (placeholder)</td></tr>
+<tr><td><code>python boni_ui.py</code></td><td>Inicia interfaz holográfica</td></tr>
+<tr><td><code>python boni_webui.py</code></td><td>Inicia interfaz web (3001)</td></tr>
+<tr><td><code>BONI_INICIO.ps1</code></td><td>Auto-inicio stack completo</td></tr>
+<tr><td><code>wsl jarvis doctor</code></td><td>Diagnóstico OpenJarvis</td></tr>
+<tr><td><code>wsl jarvis agents list</code></td><td>Lista agentes activos</td></tr>
+<tr><td><code>http://localhost:3001</code></td><td>BONI Web UI</td></tr>
+<tr><td><code>http://localhost:11434</code></td><td>Ollama API</td></tr>
+</table>
+
+<div class="section-divider">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+
+<h2>SECCIÓN 7 — ROADMAP PENDIENTE</h2>
+
+<table>
+<tr><th>Prioridad</th><th>Tarea</th><th>Tiempo</th><th>Dependencias</th></tr>
+<tr><td class="status-err">🔴 Alta</td><td>Copiar audios WhatsApp + clonar voz</td><td>30 min</td><td>Archivos .opus de Mario</td></tr>
+<tr><td class="status-err">🔴 Alta</td><td>Iniciar TTS Server en WSL</td><td>2 min</td><td>Voz clonada</td></tr>
+<tr><td class="status-err">🔴 Alta</td><td>Iniciar Docker Desktop</td><td>2 min</td><td>—</td></tr>
+<tr><td class="status-err">🔴 Alta</td><td>Activar Open WebUI</td><td>1 min</td><td>Docker Desktop</td></tr>
+<tr><td class="status-warn">🟡 Media</td><td>Instalar browser-use + Playwright</td><td>5 min</td><td>—</td></tr>
+<tr><td class="status-warn">🟡 Media</td><td>Corregir jarvis serve</td><td>?</td><td>—</td></tr>
+<tr><td class="status-warn">🟡 Media</td><td>Compilar Rust extension</td><td>10 min</td><td>—</td></tr>
+<tr><td class="status-warn">🟡 Media</td><td>Instalar pyautogui/pynput WSL</td><td>5 min</td><td>build-essential</td></tr>
+<tr><td>🟢 Baja</td><td>Descargar OpenHands (2GB)</td><td>3 min</td><td>Docker Desktop</td></tr>
+<tr><td>🟢 Baja</td><td>Implementar STT (micrófono real)</td><td>2-4 h</td><td>—</td></tr>
+<tr><td>🟢 Baja</td><td>Crear boni_sandbox.py</td><td>3-5 h</td><td>—</td></tr>
+<tr><td>🟢 Baja</td><td>Tarea programada inicio auto</td><td>2 min</td><td>—</td></tr>
+<tr><td>🟢 Baja</td><td>Instalar Node.js 22+</td><td>5 min</td><td>—</td></tr>
+<tr><td>🟢 Baja</td><td>Indexar documentos SQLite</td><td>10 min</td><td>Rust extension</td></tr>
+<tr><td>🟢 Baja</td><td>Configurar canales (WhatsApp, Slack)</td><td>2-3 h</td><td>Node.js</td></tr>
+</table>
+
+<hr>
+<p style="text-align:center;color:var(--muted);font-size:0.85em">
+B.O.N.I. v2.1 — Reporte generado el 31 de mayo de 2026
+</p>
+
+</div>
+</body>
+</html>
