@@ -83,8 +83,8 @@ function StatusIcon {
 function Get-WslIp {
     for ($i = 1; $i -le 3; $i++) {
         try {
-            $result = wsl -d Ubuntu-22.04 -- bash -lc 'hostname -I 2>/dev/null | awk "{print \$1}"' 2>&1
-            $result = "$result".Trim()
+            $result = wsl -d Ubuntu-22.04 -- bash -lc "hostname -I 2>/dev/null" 2>&1
+            $result = "$result".Trim().Split()[0]
             if (-not [string]::IsNullOrWhiteSpace($result)) { return $result }
         } catch {}
         if ($i -lt 3) { Start-Sleep -Seconds 5 }
@@ -95,9 +95,8 @@ function Get-WslIp {
 function Get-WslGateway {
     for ($i = 1; $i -le 3; $i++) {
         try {
-            $result = wsl -d Ubuntu-22.04 -- bash -lc 'ip route | grep default | awk "{print \$3}"' 2>&1
-            $result = "$result".Trim()
-            if (-not [string]::IsNullOrWhiteSpace($result)) { return $result }
+            $result = wsl -d Ubuntu-22.04 -- bash -lc "ip route | grep default" 2>&1
+            if ($result -match 'default via (\S+)') { return $matches[1] }
         } catch {}
         if ($i -lt 3) { Start-Sleep -Seconds 5 }
     }
