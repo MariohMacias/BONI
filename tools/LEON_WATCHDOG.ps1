@@ -9,7 +9,6 @@ $StateFile = "$env:USERPROFILE\.leon\profiles\just-me\.watchdog_state"
 
 $OpenRouterModel = "openrouter nvidia/nemotron-3-super-120b-a12b:free"
 $LocalModel = "openai qwen2.5:0.5b"
-$LocalServerUrl = "http://127.0.0.1:8080/v1/models"
 $LeonApi = "http://localhost:5366/api/v1/command"
 
 $OpenRouterTestFile = "$env:TEMP\or_watchdog_test.json"
@@ -78,8 +77,9 @@ function Test-OpenRouterAvailable {
 
 function Test-LocalAvailable {
     try {
-        $resp = Invoke-WebRequest -Uri $LocalServerUrl -Method Get -TimeoutSec 5 -UseBasicParsing
-        return ($resp.StatusCode -eq 200)
+        # Check if port is listening (faster/more reliable than HTTP)
+        $connections = netstat -ano | Select-String "127.0.0.1:8080"
+        return ($null -ne $connections)
     } catch {
         return $false
     }
