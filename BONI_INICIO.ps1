@@ -134,6 +134,10 @@ if ([string]::IsNullOrWhiteSpace($WSL_IP)) {
     $WSL_IP = "172.17.0.1"
     $WIN_GW = "172.17.0.1"
 } else {
+    if ([string]::IsNullOrWhiteSpace($WIN_GW)) {
+        Write-Warn "Gateway no detectado. Usando fallback 172.29.176.1 (ultimo conocido)."
+        $WIN_GW = "172.29.176.1"
+    }
     Write-Ok "WSL IP: $WSL_IP | Gateway: $WIN_GW"
 }
 
@@ -143,34 +147,33 @@ $Results["wsl_ip"] = $WSL_IP
 $Results["win_gw"] = $WIN_GW
 
 # ============================================================
-# PASO 2 - Verificar/Iniciar Ollama + precargar boni-rapido
+# PASO 2 - Verificar/Iniciar Ollama en WSL (nativo)
 # ============================================================
-Write-Step "Verificar/Iniciar Ollama y precargar modelo"
+Write-Step "Verificar/Iniciar Ollama en WSL"
 
 $ollamaOk = $false
-if (Test-Port -ComputerName "localhost" -Port 11434) {
-    Write-Ok "Ollama ya esta corriendo en localhost:11434"
+$ollamaWslCheck = Invoke-Wsl "curl -sf --connect-timeout 3 http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && echo OK || echo FAIL"
+if ($ollamaWslCheck -match "OK") {
+    Write-Ok "Ollama ya esta corriendo en WSL:11434"
     $ollamaOk = $true
 } else {
-    Write-Info "Ollama no detectado. Iniciando ollama serve..."
-    try {
-        $proc = Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden -PassThru
-        Write-Info "Ollama iniciado (PID: $($proc.Id)). Esperando conexion..."
-    } catch { Write-Warn "No se pudo iniciar ollama serve: $_" }
+    Write-Info "Ollama no detectado en WSL. Iniciando ollama serve via screen..."
+    Invoke-Wsl "screen -dmS ollama bash -c 'ollama serve > /root/.boni/ollama.log 2>&1'"
 
     $timeout = [datetime]::Now.AddSeconds(30)
     $attempts = 0
     while ([datetime]::Now -lt $timeout) {
         $attempts++
         Start-Sleep -Seconds 5
-        if (Test-Port -ComputerName "localhost" -Port 11434) {
-            Write-Ok "Ollama conectado tras $($attempts * 5)s"
+        $check = Invoke-Wsl "curl -sf --connect-timeout 3 http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && echo OK || echo FAIL"
+        if ($check -match "OK") {
+            Write-Ok "Ollama en WSL conectado tras $($attempts * 5)s"
             $ollamaOk = $true
             break
         }
-        Write-Info "Esperando Ollama... ($($attempts * 5)s/30s)"
+        Write-Info "Esperando Ollama en WSL... ($($attempts * 5)s/30s)"
     }
-    if (-not $ollamaOk) { Write-Err "Ollama no respondio tras 30s" }
+    if (-not $ollamaOk) { Write-Err "Ollama en WSL no respondio tras 30s" }
 }
 $Results["ollama"] = $ollamaOk
 
@@ -179,34 +182,29 @@ $preloadOk = $false
 if ($ollamaOk) {
     Write-Info "Precargando boni-rapido:latest en memoria..."
     try {
-        $proc = Start-Process "ollama" -ArgumentList "run boni-rapido:latest" -WindowStyle Hidden -PassThru
-        Start-Sleep -Seconds 3
-        Write-Ok "boni-rapido:latest precargado (PID ollama: $($proc.Id))"
-        $preloadOk = $true
+        $preloadResult = Invoke-Wsl "curl -s --max-time 120 -X POST http://127.0.0.1:11434/api/chat -H 'Content-Type: application/json' -d '{\"model\":\"boni-rapido:latest\",\"messages\":[{\"role\":\"user\",\"content\":\"precarga\"}],\"stream\":false}' >/dev/null 2>&1 && echo OK || echo FAIL"
+        if ($preloadResult -match "OK") {
+            Write-Ok "boni-rapido:latest precargado en cache"
+            $preloadOk = $true
+        } else { Write-Warn "No se pudo precargar modelo" }
     } catch { Write-Warn "No se pudo precargar modelo: $_" }
 }
 $Results["preload"] = $preloadOk
 
 # ============================================================
-# PASO 3 - Actualizar IP en configs de OpenJarvis
+# PASO 3 - Actualizar configs de OpenJarvis (Ollama via gateway)
 # ============================================================
-Write-Step "Actualizar IP en configs de OpenJarvis"
+Write-Step "Actualizar configs de OpenJarvis (Ollama via gateway)"
 
 $configOk = $false
 try {
-    $wslResult = Invoke-Wsl "source ~/.bashrc 2>/dev/null; jarvis config set engine.ollama.host http://$WIN_GW:11434 2>&1"
-    Write-Info "WSL config actualizado: $wslResult"
+    # Usar WIN_GW (gateway de WSL hacia Windows) para que OpenJarvis
+    # alcance Ollama que corre en Windows. 127.0.0.1 desde WSL seria WSL mismo.
+    $OLLAMA_HOST = if ([string]::IsNullOrWhiteSpace($WIN_GW)) { "127.0.0.1" } else { $WIN_GW }
+    Write-Info "Gateway para Ollama: $OLLAMA_HOST"
 
-    $configPath = "$env:USERPROFILE\.openjarvis\config.toml"
-    if (Test-Path $configPath) {
-        $content = Get-Content $configPath -Raw
-        $content = $content -replace 'engine\.ollama\.host = .*', "engine.ollama.host = `"http://$WIN_GW:11434`""
-        $content = $content -replace 'wsl_ip = .*', "wsl_ip = `"$WSL_IP`""
-        $content | Set-Content $configPath -Force
-        Write-Ok "config.toml actualizado con GW=$WIN_GW"
-    } else {
-        Write-Warn "No se encontro config.toml en $configPath"
-    }
+    $wslResult = Invoke-Wsl "source ~/.bashrc 2>/dev/null; jarvis config set engine.ollama.host http://${OLLAMA_HOST}:11434 2>&1"
+    Write-Info "WSL config actualizado: $wslResult"
     $configOk = $true
 } catch { Write-Err "Error actualizando configs: $_" }
 $Results["config_update"] = $configOk
@@ -243,22 +241,22 @@ if (-not [string]::IsNullOrWhiteSpace($jarvisHealth)) {
     $jarvisOk = $true
 } else {
     Write-Info "Iniciando OpenJarvis Server en WSL..."
-    Invoke-Wsl "source ~/.bashrc 2>/dev/null; mkdir -p ~/.boni; nohup jarvis start > ~/.boni/jarvis.log 2>&1 &"
+    Invoke-Wsl "screen -dmS jarvis bash -c 'python3.10 -m openjarvis.cli serve --port 8000 > /root/.boni/jarvis.log 2>&1'"
 
-    $timeout = [datetime]::Now.AddSeconds(20)
+    $timeout = [datetime]::Now.AddSeconds(120)
     $attempts = 0
     while ([datetime]::Now -lt $timeout) {
         $attempts++
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 5
         $check = Invoke-Wsl "curl -s --connect-timeout 3 http://127.0.0.1:8000/health 2>/dev/null"
         if (-not [string]::IsNullOrWhiteSpace($check)) {
-            Write-Ok "OpenJarvis Server iniciado tras $($attempts * 3)s"
+            Write-Ok "OpenJarvis Server iniciado tras $($attempts * 5)s"
             $jarvisOk = $true
             break
         }
-        Write-Info "Esperando OpenJarvis Server... ($($attempts * 3)s/20s)"
+        Write-Info "Esperando OpenJarvis Server... ($($attempts * 5)s/120s - carga fria ~90s)"
     }
-    if (-not $jarvisOk) { Write-Err "OpenJarvis Server no respondio tras 20s" }
+    if (-not $jarvisOk) { Write-Err "OpenJarvis Server no respondio tras 120s" }
 }
 $Results["jarvis"] = $jarvisOk
 
@@ -400,10 +398,18 @@ if ($ttsHealth -match "ok") {
     Write-Ok "TTS Server ya esta corriendo en WSL:5050"
     $ttsOk = $true
 } else {
-    Write-Info "Iniciando TTS Server en background (tarda ~5min en cargar modelo)..."
-    Invoke-Wsl "mkdir -p ~/.boni; nohup python3 /root/boni_voice/tts_server.py > ~/.boni/tts.log 2>&1 &"
-    Write-Ok "TTS Server lanzado en background - continuando sin esperar"
-    $ttsOk = "STARTED_BG"
+    Write-Info "Iniciando TTS Server rapido (espeak)"
+    Invoke-Wsl "mkdir -p ~/.boni; nohup python3 /root/.boni/tts_server.py > ~/.boni/tts.log 2>&1 &"
+    $checkTTS = Invoke-Wsl "curl -s --connect-timeout 5 http://localhost:5050/health 2>/dev/null"
+    if ($checkTTS -match "ok") {
+        Write-Ok "TTS Server rapido respondiendo en WSL:5050"
+        $ttsOk = $true
+    } else {
+        Write-Warn "TTS rapido no responde, intentando el pesado (~5min)..."
+        Invoke-Wsl "pkill -f 'tts_server.py' 2>/dev/null; nohup python3 /root/boni_voice/tts_server.py > ~/.boni/tts.log 2>&1 &"
+        Write-Ok "TTS Server pesado lanzado en background - continuando sin esperar"
+        $ttsOk = "STARTED_BG"
+    }
 }
 $Results["tts"] = $ttsOk
 
@@ -483,7 +489,31 @@ if ($ojExe) {
 $Results["oj_desktop"] = $ojDesktopOk
 
 # ============================================================
-# PASO 13 - REPORTE FINAL
+# PASO 13 - Iniciar Sandbox Server (Windows:8765)
+# ============================================================
+Write-Step "Iniciar Sandbox Server (Windows:8765)"
+
+$sandboxOk = $false
+$sandboxScript = "C:\Users\nosoy\OneDrive\Desktop\boni\boni_sandbox_server.py"
+if (Test-Path $sandboxScript) {
+    $sandboxCheck = Test-NetConnection -ComputerName "localhost" -Port 8765 -WarningAction SilentlyContinue
+    if ($sandboxCheck.TcpTestSucceeded) {
+        Write-Ok "Sandbox Server ya respondiendo en :8765"
+        $sandboxOk = $true
+    } else {
+        try {
+            $pythonPath = (Get-Command python).Source
+            $proc = Start-Process -FilePath "pythonw" -ArgumentList "`"$sandboxScript`"" -WindowStyle Hidden -PassThru
+            Write-Info "Sandbox Server lanzado (PID: $($proc.Id))"
+            Start-Sleep -Seconds 2
+            $sandboxOk = $true
+        } catch { Write-Err "Error iniciando Sandbox Server: $_" }
+    }
+} else { Write-Warn "boni_sandbox_server.py no encontrado - saltando" }
+$Results["sandbox"] = $sandboxOk
+
+# ============================================================
+# PASO 14 - REPORTE FINAL
 # ============================================================
 Write-Step "REPORTE FINAL"
 
@@ -511,6 +541,7 @@ Write-Host ("  {0,-22} {1,-24} {2,-6}" -f "TTS Server", "WSL:5050", $(Icon $Resu
 Write-Host ("  {0,-22} {1,-24} {2,-6}" -f "boni-operative", "agente", $(Icon $Results.operative)) -ForegroundColor $(if ($Results.operative) { "Green" } else { "Red" })
 Write-Host ("  {0,-22} {1,-24} {2,-6}" -f "boni_ui.py", "interfaz", $(Icon $Results.ui)) -ForegroundColor $(if ($Results.ui) { "Green" } else { "Red" })
 Write-Host ("  {0,-22} {1,-24} {2,-6}" -f "OpenJarvis Desktop", "Windows", $(Icon $Results.oj_desktop)) -ForegroundColor $(if ($Results.oj_desktop) { "Green" } else { "Red" })
+Write-Host ("  {0,-22} {1,-24} {2,-6}" -f "Sandbox Server", "localhost:8765", $(Icon $Results.sandbox)) -ForegroundColor $(if ($Results.sandbox) { "Green" } else { "Red" })
 Write-Host "  ----------------------------------------------------------------" -ForegroundColor Cyan
 Write-Host ("  {0,-22} {1,-40}" -f "WSL IP:", $Results.wsl_ip) -ForegroundColor Yellow
 Write-Host ("  {0,-22} {1,-40}" -f "WIN GW:", $Results.win_gw) -ForegroundColor Yellow
@@ -540,7 +571,7 @@ if ($criticalOk) {
 Write-Host ""
 
 # ============================================================
-# PASO 14 - Abrir navegador con Open WebUI
+# PASO 15 - Abrir navegador con Open WebUI
 # ============================================================
 Write-Step "Abrir navegador"
 

@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BONI v2.1</title>
+<style>
+:root{--bg-primary:#0a0a0f;--bg-secondary:#111118;--bg-input:#1a1a24;--bg-message:#1a1a24;--border:#2a2a3a;--accent:#4A9BC7;--accent-light:#7EC8E3;--text-primary:#e8e8f0;--text-muted:#6b6b80;--text-user:#7EC8E3;--text-boni:#e8e8f0;--success:#00ff88;--warning:#ffb347;--error:#ff6b6b;--sidebar-w:200px;--panel-w:280px;--radius:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;transition:grid-template-columns .2s}
+.app.panel-open{grid-template-columns:var(--sidebar-w) 1fr var(--panel-w)}
+.app.sidebar-hidden{grid-template-columns:0 1fr}
+.app.sidebar-hidden.panel-open{grid-template-columns:0 1fr var(--panel-w)}
+.sidebar{background:var(--bg-secondary);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .2s;width:var(--sidebar-w)}
+.sidebar-header{padding:14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo{font-size:18px;font-weight:700;color:var(--accent-light);letter-spacing:1px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--error);transition:background .3s}
+.status-dot.online{background:var(--success);box-shadow:0 0 6px var(--success)}
+.sidebar-section{padding:8px 12px;border-bottom:1px solid var(--border)}
+.sidebar-section label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px}
+select{width:100%;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-size:12px;outline:none;cursor:pointer}
+select:focus{border-color:var(--accent)}
+.btn{background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-size:12px;cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--border);border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-light)}
+.btn-sm{padding:4px 8px;font-size:11px}
+.btn-icon{width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px}
+.chat-list{flex:1;overflow-y:auto;padding:4px 0}
+.chat-list::-webkit-scrollbar{width:4px}
+.chat-list::-webkit-scrollbar-track{background:transparent}
+.chat-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.chat-item{padding:8px 12px;cursor:pointer;font-size:12px;color:var(--text-muted);border-bottom:1px solid rgba(42,42,58,.3);transition:background .15s;display:flex;justify-content:space-between;align-items:center}
+.chat-item:hover{background:var(--bg-input);color:var(--text-primary)}
+.chat-item.active{background:var(--bg-input);color:var(--accent-light);border-left:2px solid var(--accent)}
+.chat-item .del-btn{opacity:0;transition:opacity .15s;background:none;border:none;color:var(--error);cursor:pointer;font-size:14px;padding:0 4px}
+.chat-item:hover .del-btn{opacity:1}
+.sidebar-footer{padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.chat{display:flex;flex-direction:column;height:100vh;min-width:0}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg-secondary);flex-shrink:0}
+.chat-header-left{display:flex;align-items:center;gap:8px}
+.chat-header-info{font-size:12px;color:var(--text-muted)}
+.chat-header-info strong{color:var(--text-primary)}
+.mode-chip{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#fff}
+.messages{flex:1;overflow-y:auto;padding:16px;scroll-behavior:smooth}
+.messages::-webkit-scrollbar{width:6px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.msg{padding:12px 16px;margin-bottom:8px;border-radius:var(--radius);position:relative;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{background:rgba(74,155,199,.12);margin-left:40px;border:1px solid rgba(74,155,199,.2)}
+.msg.boni{background:transparent;margin-right:40px}
+.msg .header{font-size:11px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.msg .header .name{font-weight:600;color:var(--text-user)}
+.msg.boni .header .name{color:var(--accent-light)}
+.msg .time{font-size:10px;color:var(--text-muted);opacity:0;transition:opacity .15s}
+.msg:hover .time{opacity:1}
+.msg .content{font-size:14px;line-height:1.6;word-wrap:break-word;white-space:pre-wrap}
+.msg .content p{margin-bottom:8px}
+.msg .content p:last-child{margin-bottom:0}
+.msg .content code{background:rgba(74,155,199,.1);color:var(--accent-light);padding:1px 5px;border-radius:3px;font-size:13px;font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+.msg .content pre{background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:8px 0;overflow-x:auto}
+.msg .content pre code{background:none;color:var(--text-primary);padding:0;font-size:13px;line-height:1.5}
+.msg .content table{border-collapse:collapse;margin:8px 0;width:100%}
+.msg .content th,.msg .content td{border:1px solid var(--border);padding:6px 10px;text-align:left;font-size:13px}
+.msg .content th{background:var(--bg-secondary);color:var(--accent-light)}
+.msg .content ul,.msg .content ol{padding-left:20px;margin:6px 0}
+.msg .content li{margin:2px 0}
+.msg .content h1,.msg .content h2,.msg .content h3,.msg .content h4{margin:12px 0 6px;color:var(--accent-light)}
+.msg .content h1{font-size:18px}
+.msg .content h2{font-size:16px}
+.msg .content h3{font-size:14px}
+.msg .content blockquote{border-left:3px solid var(--accent);padding:4px 12px;margin:8px 0;color:var(--text-muted);background:rgba(74,155,199,.05)}
+.msg .content hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.msg-actions{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.msg:hover .msg-actions{opacity:1}
+.msg-actions button{background:var(--bg-input);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;border-radius:4px;width:24px;height:24px;font-size:12px;display:flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s}
+.msg-actions button:hover{color:var(--accent-light);border-color:var(--accent)}
+.copy-btn.copied{color:var(--success);border-color:var(--success)}
+.godmode-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.godmode-card{background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.godmode-card .gm-header{font-size:11px;font-weight:600;margin-bottom:4px}
+.godmode-card .gm-time{font-size:10px;color:var(--text-muted)}
+.godmode-card .gm-text{font-size:13px;margin-top:4px;line-height:1.5}
+.godmode-card.success{border-color:var(--accent)}
+.godmode-card.fail{border-color:var(--error);opacity:.6}
+.typing{display:flex;align-items:center;gap:4px;padding:12px 16px;color:var(--text-muted);font-size:13px}
+.typing-dots{display:flex;gap:3px}
+.typing-dots span{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:typing 1.4s infinite}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{opacity:.3;transform:scale(.8)}30%{opacity:1;transform:scale(1.2)}}
+.input-area{border-top:1px solid var(--border);padding:12px 16px;background:var(--bg-secondary);flex-shrink:0}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.textarea-wrap{flex:1;position:relative;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .15s}
+.textarea-wrap:focus-within{border-color:var(--accent)}
+textarea{width:100%;background:transparent;border:none;color:var(--text-primary);font-size:14px;padding:10px 12px;resize:none;outline:none;font-family:inherit;line-height:1.5;min-height:42px;max-height:160px}
+textarea::placeholder{color:var(--text-muted)}
+.input-actions{display:flex;gap:4px;align-items:center;padding-bottom:4px;padding-right:4px}
+.input-actions button{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;flex-shrink:0}
+.input-actions button:hover{color:var(--accent-light);border-color:var(--accent)}
+.input-actions button:disabled{opacity:.4;cursor:not-allowed}
+.input-actions button.recording{color:var(--error);border-color:var(--error);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,.4)}50%{box-shadow:0 0 8px 4px rgba(255,107,107,.2)}}
+.input-actions .send-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+.input-actions .send-btn:hover{background:var(--accent-light)}
+.input-actions .send-btn:disabled{background:var(--border);color:var(--text-muted);border-color:var(--border)}
+.input-info{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding:0 4px}
+.input-info .mode-indicator{font-size:10px;color:var(--text-muted);padding:2px 6px;border-radius:4px;background:var(--bg-input)}
+.input-info .token-count{font-size:10px;color:var(--text-muted)}
+.panel{background:var(--bg-secondary);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;width:var(--panel-w)}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-tab{padding:10px 12px;font-size:12px;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;transition:all .15s}
+.panel-tab:hover{color:var(--text-primary)}
+.panel-tab.active{color:var(--accent-light);border-bottom-color:var(--accent)}
+.panel-content{flex:1;overflow-y:auto;padding:12px}
+.panel-content::-webkit-scrollbar{width:4px}
+.panel-content::-webkit-scrollbar-track{background:transparent}
+.panel-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.panel-content .section{margin-bottom:12px}
+.panel-content .section-title{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.status-item{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 6px;border-radius:4px;background:var(--bg-primary)}
+.status-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.status-item .dot.green{background:var(--success)}
+.status-item .dot.red{background:var(--error)}
+.status-item .dot.yellow{background:var(--warning)}
+.status-item .name{color:var(--text-muted)}
+.status-item .val{color:var(--text-primary);margin-left:auto;font-family:monospace;font-size:10px}
+.skill-list{max-height:300px;overflow-y:auto}
+.skill-item{padding:4px 6px;font-size:11px;color:var(--text-muted);cursor:pointer;border-radius:4px;transition:background .15s}
+.skill-item:hover{background:var(--bg-input);color:var(--text-primary)}
+.skill-search{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:6px 8px;border-radius:var(--radius);font-size:12px;margin-bottom:6px;outline:none}
+.skill-search:focus{border-color:var(--accent)}
+.slider-group{margin-bottom:8px}
+.slider-group label{font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between}
+.slider-group input[type=range]{width:100%;margin:2px 0;-webkit-appearance:none;background:var(--bg-input);height:4px;border-radius:2px;outline:none}
+.slider-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
+.toggle{width:36px;height:20px;background:var(--bg-input);border-radius:10px;cursor:pointer;position:relative;transition:background .2s;border:1px solid var(--border)}
+.toggle.active{background:var(--accent);border-color:var(--accent)}
+.toggle:after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle.active:after{transform:translateX(16px)}
+.tool-btn{width:100%;padding:6px;font-size:11px;margin-bottom:4px;text-align:left}
+.search-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center}
+.search-overlay.open{display:flex}
+.search-dialog{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:16px;width:480px;max-width:90vw}
+.search-dialog input{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:10px 12px;border-radius:8px;font-size:14px;outline:none}
+.search-dialog input:focus{border-color:var(--accent)}
+.search-dialog .results{max-height:300px;overflow-y:auto;margin-top:8px}
+.search-result{padding:8px;border-radius:6px;cursor:pointer;font-size:12px}
+.search-result:hover{background:var(--bg-input)}
+.search-result .sr-msg{color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-result .sr-pos{color:var(--accent-light);font-size:10px}
+.cmd-menu{position:absolute;bottom:100%;left:0;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);max-height:200px;overflow-y:auto;width:280px;display:none;z-index:50}
+.cmd-menu.open{display:block}
+.cmd-item{padding:8px 12px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+.cmd-item:hover,.cmd-item.selected{background:var(--bg-input)}
+.cmd-item .cmd-key{color:var(--accent-light);font-family:monospace}
+.cmd-item .cmd-desc{color:var(--text-muted);font-size:10px}
+.hidden{display:none!important}
+@media(max-width:768px){
+.app{grid-template-columns:1fr!important}
+.sidebar,.panel{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app panel-open" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="status-dot online" id="statusDot"></span>
+      <span class="logo">B.O.N.I.</span>
+      <span style="font-size:10px;color:var(--text-muted)">v2.1</span>
+    </div>
+    <div class="sidebar-section">
+      <label>Modelo</label>
+      <select id="modelSelect">
+        <option value="boni-rapido:latest">BONI Rápido</option>
+        <option value="qwen2.5:3b">QWEN 3B</option>
+        <option value="qwen2.5:7b">QWEN 7B</option>
+        <option value="deepseek-r1:8b">DeepSeek R1</option>
+        <option value="gemma3:4b">Gemma 3</option>
+      </select>
+    </div>
+    <div class="sidebar-section">
+      <label>Modo</label>
+      <select id="modeSelect">
+        <option value="chat">💬 Chat Normal</option>
+        <option value="godmode">⚡ GODMODE</option>
+        <option value="research">🔬 Investigación</option>
+        <option value="agent">🤖 Agente</option>
+      </select>
+    </div>
+    <div class="sidebar-section" style="border-bottom:none">
+      <button class="btn btn-primary" style="width:100%;font-size:12px" onclick="BONI.nuevaConversacion()">+ Nueva conversación</button>
+    </div>
+    <div class="chat-list" id="chatList"></div>
+    <div class="sidebar-footer">
+      <button class="btn btn-sm" onclick="togglePanel()">☰ Panel</button>
+    </div>
+  </aside>
+  <main class="chat">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <button class="btn btn-sm btn-icon" onclick="toggleSidebar()">☰</button>
+        <div class="chat-header-info">
+          <strong id="modeLabel">Chat Normal</strong> · <span id="modelLabel">boni-rapido:latest</span>
+        </div>
+        <span class="mode-chip" id="modeChip">CHAT</span>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="openSearch()" title="Buscar (Ctrl+F)">🔍</button>
+        <button class="btn btn-sm" onclick="exportarChat()" title="Exportar">📥</button>
+        <button class="btn btn-sm btn-icon" onclick="togglePanel()">📊</button>
+      </div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="typing hidden" id="typing">
+      <span>BONI está escribiendo</span>
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="textarea-wrap" style="position:relative">
+          <div class="cmd-menu" id="cmdMenu"></div>
+          <textarea id="chatInput" rows="1" onkeydown="if(event.keyCode===13&&!event.shiftKey){event.preventDefault();if(window.BONI)window.BONI.enviar();event.returnValue=false;return false}" placeholder="Escribe un mensaje... (Enter enviar, Shift+Enter nueva línea)"></textarea>
+        </div>
+        <div class="input-actions">
+          <button id="micBtn" title="Micrófono">🎙</button>
+          <button id="stopBtn" class="hidden" title="Detener" style="color:var(--error)">⏹</button>
+          <button id="sendBtn" class="send-btn" title="Enviar">→</button>
+        </div>
+      </div>
+      <div class="input-info">
+        <span class="mode-indicator" id="modeIndicator">CHAT</span>
+        <span class="token-count" id="tokenCount">0 tokens</span>
+      </div>
+    </div>
+  </main>
+  <aside class="panel" id="panel">
+    <div class="panel-tabs" id="panelTabs">
+      <div class="panel-tab active" data-tab="status">Estado</div>
+      <div class="panel-tab" data-tab="skills">Skills</div>
+      <div class="panel-tab" data-tab="tools">Tools</div>
+      <div class="panel-tab" data-tab="config">Config</div>
+    </div>
+    <div class="panel-content" id="panelContent"></div>
+  </aside>
+</div>
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-dialog">
+    <input id="searchInput" placeholder="Buscar en la conversación..." autofocus>
+    <div class="results" id="searchResults"></div>
+  </div>
+</div>
+<script>
+// ===== CONFIG & CONSTANTS =====
+// All requests go through the proxy (localhost:8080) for CORS
+const PROXY_URL='';
+const OLLAMA_URL=PROXY_URL+'/api/ollama';
+const JARVIS_URL=PROXY_URL+'/api/jarvis';
+const TTS_URL=PROXY_URL+'/api/tts';
+const SANDBOX_URL=PROXY_URL+'/api/sandbox';
+const TTS_PORT=5050;
+const WSL_IP_DEFAULT='172.17.0.1';
+
+// ===== BONIConfig =====
+class BONIConfig{
+  static detectando=false;
+  static wslIp=WSL_IP_DEFAULT;
+  static listeners=[];
+  static async detectarWSL(){
+    if(this.detectando)return;
+    this.detectando=true;
+    try{
+      let r=await fetch(OLLAMA_URL+'/tags',{signal:AbortSignal.timeout(5000)});
+      if(r.ok)this.wslIp='127.0.0.1';
+    }catch(e){
+      try{
+        let parts=location.hostname.split('.');
+        if(parts.length===4)this.wslIp=location.hostname;
+      }catch(e2){}
+    }
+    this.detectando=false;
+    this._notify();
+  }
+  static onWSL(cb){this.listeners.push(cb);if(this.wslIp!==WSL_IP_DEFAULT)cb(this.wslIp)}
+  static _notify(){this.listeners.forEach(cb=>cb(this.wslIp))}
+  static get(k,def=null){
+    try{let v=localStorage.getItem('boni_'+k);return v!==null?JSON.parse(v):def}catch(e){return def}
+  }
+  static set(k,v){
+    try{localStorage.setItem('boni_'+k,JSON.stringify(v))}catch(e){}
+  }
+}
+
+// ===== STT =====
+const CONTEXTOS={
+  creative:{temperature:.9,top_p:.95,keywords:['escribe','crea','imagina','historia','poema','inventa']},
+  technical:{temperature:.2,top_p:.85,keywords:['codigo','error','debug','funcion','script','instala','configura']},
+  factual:{temperature:.1,top_p:.80,keywords:['que es','como funciona','explica','define','cuando','donde']},
+  reasoning:{temperature:.4,top_p:.90,keywords:['analiza','compara','por que','evalua','decide','estrategia']},
+  casual:{temperature:.7,top_p:.92,keywords:['hola','oye','que','como estas','ayuda','dime']}
+};
+const EMA_ALPHA=.1;
+const HEDGES_ES=[
+  /^(claro que si[,.]?\s*)/i,/^(claro que sí[,.]?\s*)/i,/^(por supuesto[,.]?\s*)/i,
+  /^(entendido[,.]?\s*)/i,/^(desde luego[,.]?\s*)/i,/^(con mucho gusto[,.]?\s*)/i,
+  /\b(creo que|me parece que|posiblemente|quizas|tal vez|podria ser que)\b/i,
+  /\b(en mi opinion|a mi parecer|segun mi criterio)\b/i,
+  /(espero que esto (te |le )?ayude\.?\s*$)/i,
+  /(si (tienes|tiene) (mas )?preguntas.{0,50}$)/i,
+  /((hay|existe) algo mas (en )?que pueda ayudarte\??\.?\s*$)/i,
+  /(no dudes en (preguntar|consultarme).{0,50}$)/i
+];
+const PREAMBLES=[
+  /^((hola|buenas)[!,.]?\s*)/i,
+  /^(esa es una (buena|excelente|interesante) (pregunta|consulta)[.!,]\s*)/i,
+  /^(me alegra que (lo preguntes|preguntes eso)[.!,]\s*)/i
+];
+const DIRECT_PATTERNS=[
+  [/en primer lugar,?\s*/i,'' ],[/en segundo lugar,?\s*/i,'' ],
+  [/en resumen,?\s*/i,'' ],[/como conclusion,?\s*/i,'' ]
+];
+
+// ===== AutoTune =====
+class AutoTune{
+  static detectarContexto(texto){
+    let t=texto.toLowerCase();
+    let scores={};let best='casual';let bestScore=0;
+    for(let[ctx,data]of Object.entries(CONTEXTOS)){
+      let s=data.keywords.reduce((a,k)=>a+(t.includes(k)?1:0),0);
+      scores[ctx]=s;
+      if(s>bestScore){bestScore=s;best=ctx}
+    }
+    return best;
+  }
+  static getParams(texto){
+    let ctx=this.detectarContexto(texto);
+    let p={...CONTEXTOS[ctx]};
+    delete p.keywords;p.context_type=ctx;
+    return p;
+  }
+}
+
+// ===== STMModules =====
+class STMModules{
+  static aplicar(texto){
+    for(let p of[...HEDGES_ES,...PREAMBLES])texto=texto.replace(p,'');
+    for(let[p,r]of DIRECT_PATTERNS)texto=texto.replace(p,r);
+    return texto.replace(/\n{3,}/g,'\n\n').trim();
+  }
+}
+
+// ===== OllamaClient =====
+class OllamaClient{
+  static abort=null;
+  static async chat(modelo,mensajes,opciones,onToken,onDone,onError){
+    this.abort=new AbortController();
+    try{
+      let params=AutoTune.getParams(mensajes[mensajes.length-1].content);
+      let payload={
+        model:modelo,
+        messages:mensajes,
+        stream:true,
+        options:{
+          temperature:opciones.temperature??params.temperature??.7,
+          top_p:opciones.top_p??params.top_p??.9,
+          num_ctx:opciones.num_ctx??2048,
+          num_predict:opciones.num_predict??512,
+          keep_alive:'10m'
+        }
+      };
+      let r=await fetch(OLLAMA_URL+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload),signal:this.abort.signal
+      });
+      if(!r.ok){onError('Error HTTP: '+r.status);return}
+      let reader=r.body.getReader();
+      let decoder=new TextDecoder();
+      let full='';
+      while(true){
+        let{done,value}=await reader.read();
+        if(done)break;
+        let chunk=decoder.decode(value,{stream:true});
+        let lines=chunk.split('\n').filter(l=>l.trim());
+        for(let line of lines){
+          try{
+            let d=JSON.parse(line);
+            let c=d.message?.content||'';
+            if(c){full+=c;onToken(c)}
+          }catch(e){}
+        }
+      }
+      let cleaned=STMModules.aplicar(full);
+      onDone(cleaned);
+    }catch(e){
+      if(e.name==='AbortError')onError('Cancelado');
+      else onError('Error: '+e.message);
+    }
+  }
+  static cancelar(){if(this.abort){this.abort.abort();this.abort=null}}
+}
+
+// ===== GodmodeLocal =====
+class GodmodeLocal{
+  static MODELOS=[
+    {nombre:'BONI',model:'boni-rapido:latest',emoji:'🔵'},
+    {nombre:'QWEN 3B',model:'qwen2.5:3b',emoji:'🟡'},
+    {nombre:'DEEPSEEK',model:'deepseek-r1:8b',emoji:'🟢'},
+    {nombre:'GEMMA',model:'gemma3:4b',emoji:'🟢'}
+  ];
+  static async consultarTodos(texto,params){
+    let resultados=await Promise.all(this.MODELOS.map(m=>this._consultar(m,texto,params)));
+    return resultados.sort((a,b)=>a.tiempo-b.tiempo);
+  }
+  static async _consultar(cfg,texto,params){
+    let t0=performance.now();
+    try{
+      let r=await fetch(OLLAMA_URL+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:cfg.model,
+          messages:[{role:'user',content:texto}],
+          stream:false,
+          options:{temperature:params.temperature??.7,top_p:params.top_p??.9,keep_alive:'10m'}
+        }),
+        signal:AbortSignal.timeout(120000)
+      });
+      if(r.ok){
+        let d=await r.json();
+        let t=STMModules.aplicar(d.message?.content||'');
+        return{nombre:cfg.nombre,emoji:cfg.emoji,modelo:cfg.model,texto:t,tiempo:+(performance.now()-t0)/1000|0,exito:true};
+      }
+    }catch(e){}
+    return{nombre:cfg.nombre,emoji:cfg.emoji,texto:'Sin respuesta',tiempo:+(performance.now()-t0)/1000|0,exito:false};
+  }
+}
+
+// ===== ChatHistory =====
+class ChatHistory{
+  static MAX_CONV=20;static MAX_MSG=100;
+  static getConversaciones(){
+    try{return JSON.parse(localStorage.getItem('boni_convs')||'[]')}catch(e){return[]}
+  }
+  static guardarConversaciones(convs){
+    try{localStorage.setItem('boni_convs',JSON.stringify(convs))}catch(e){}
+  }
+  static nueva(id,primerMsg){
+    let convs=this.getConversaciones();
+    convs.unshift({id:id||Date.now().toString(36)+Math.random().toString(36).slice(2,6),titulo:(primerMsg||'Nueva conversación').slice(0,60),mensajes:[],created:Date.now(),updated:Date.now()});
+    if(convs.length>this.MAX_CONV)convs=convs.slice(0,this.MAX_CONV);
+    this.guardarConversaciones(convs);
+    return convs[0];
+  }
+  static agregarMensaje(convId,rol,contenido,meta){
+    let convs=this.getConversaciones();
+    let conv=convs.find(c=>c.id===convId);
+    if(!conv)return;
+    conv.mensajes.push({rol,contenido,meta:meta||{},time:Date.now()});
+    if(conv.mensajes.length>this.MAX_MSG)conv.mensajes=conv.mensajes.slice(-this.MAX_MSG);
+    if(conv.titulo==='Nueva conversación'&&rol==='user')conv.titulo=contenido.slice(0,60);
+    conv.updated=Date.now();
+    this.guardarConversaciones(convs);
+    return conv;
+  }
+  static eliminar(convId){
+    let convs=this.getConversaciones().filter(c=>c.id!==convId);
+    this.guardarConversaciones(convs);
+    return convs;
+  }
+  static exportar(convId){
+    let convs=this.getConversaciones();
+    let conv=convs.find(c=>c.id===convId);
+    if(!conv||!conv.mensajes.length)return'# Conversación vacía\n';
+    let md='# BONI Chat\n\n';
+    for(let m of conv.mensajes){
+      let emoji=m.rol==='user'?'👤':'🤖';
+      md+=`**${emoji} ${m.rol==='user'?'Tú':'BONI'}**\n${m.contenido}\n\n`;
+    }
+    return md;
+  }
+}
+
+// ===== VoiceInput =====
+class VoiceInput{
+  constructor(){
+    this.recognition=null;
+    this.activo=false;
+    this.onResult=null;
+    this.onEnd=null;
+    try{
+      let SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(SR){this.recognition=new SR();this.recognition.lang='es-MX';this.recognition.continuous=true;this.recognition.interimResults=true}
+    }catch(e){}
+  }
+  get disponible(){return!!this.recognition}
+  toggle(){
+    if(this.activo)this.detener();
+    else this.iniciar();
+  }
+  iniciar(){
+    if(!this.recognition||this.activo)return;
+    this.activo=true;
+    this.recognition.onresult=e=>{
+      let t='';
+      for(let r of e.results){let l=r[r.length-1];if(l.transcript)t+=l.transcript}
+      if(t&&this.onResult)this.onResult(t);
+    };
+    this.recognition.onend=()=>{if(this.activo)this.recognition.start()};
+    this.recognition.onerror=()=>{if(this.activo)this.recognition.start()};
+    try{this.recognition.start()}catch(e){this.activo=false}
+    document.getElementById('micBtn').classList.add('recording');
+  }
+  detener(){
+    this.activo=false;
+    if(this.recognition){try{this.recognition.stop()}catch(e){}}
+    document.getElementById('micBtn').classList.remove('recording');
+    if(this.onEnd)this.onEnd();
+  }
+}
+
+// ===== TTSClient =====
+class TTSClient{
+  static synth=window.speechSynthesis;
+  static async hablar(texto){
+    if(!texto)return;
+    try{
+      let r=await fetch(TTS_URL+'/speak',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({texto:texto.slice(0,300)}),
+        signal:AbortSignal.timeout(10000)
+      });
+      if(r.ok){
+        let blob=await r.blob();
+        let url=URL.createObjectURL(blob);
+        let a=new Audio(url);
+        a.onended=()=>{URL.revokeObjectURL(url)};
+        await a.play();
+        return;
+      }
+    }catch(e){}
+    if(this.synth){
+      let u=new SpeechSynthesisUtterance(texto.slice(0,200));
+      u.lang='es-MX';u.rate=1.1;
+      this.synth.speak(u);
+    }
+  }
+  static async healthCheck(){
+    try{let r=await fetch(TTS_URL+'/health',{signal:AbortSignal.timeout(3000)});return r.ok}catch(e){return false}
+  }
+}
+    }catch(e){}
+    // Fallback: Web Speech API
+    if(this.synth){
+      let u=new SpeechSynthesisUtterance(texto.slice(0,200));
+      u.lang='es-MX';u.rate=1.1;
+    this.synth.speak(u);
+  }
+}
+
+
+// ===== SkillsManager =====
+class SkillsManager{
+  static skills=[];
+  static async listar(){
+    if(this.skills.length)return this.skills;
+    try{
+      let r=await fetch(JARVIS_URL+'/skills',{signal:AbortSignal.timeout(5000)});
+      if(r.ok){this.skills=await r.json();return this.skills}
+    }catch(e){}
+    this.skills=[
+      'browser_use','calcular','codigo','comandos','control_pc','conversacion','crear_archivo',
+      'deep_research','dibujar','ejecutar_python','enviar_email','escanear_red','extraer_datos',
+      'generar_imagen','generar_pdf','git','graficar','hacer_resumen','informacion','leer_archivo',
+      'matematicas','memoria','monitoreo','navegar_web','notificaciones','optimizar','organizar',
+      'planificar','programar','proyecto','recordatorio','reporte','scraping','seguridad',
+      'simular','sugerir','tarea_programada','tradutor','trends','vision','web_search'
+    ];
+    return this.skills;
+  }
+  static buscar(q){
+    if(!q)return this.skills;
+    let l=q.toLowerCase();
+    return this.skills.filter(s=>s.toLowerCase().includes(l));
+  }
+}
+
+// ===== Modalidades de chat =====
+const MODOS={
+  chat:{label:'Chat Normal',chip:'CHAT',llave:'chat'},
+  godmode:{label:'GODMODE',chip:'GODMODE',llave:'godmode'},
+  research:{label:'Investigación',chip:'INVESTIGAR',llave:'research'},
+  agent:{label:'Agente Operativo',chip:'AGENTE',llave:'agent'}
+};
+const COMANDOS=[
+  {cmd:'/godmode',desc:'Activar GODMODE'},
+  {cmd:'/investigar',desc:'Modo investigación'},
+  {cmd:'/ejecutar',desc:'Ejecutar código en sandbox'},
+  {cmd:'/screenshot',desc:'Tomar screenshot'},
+  {cmd:'/memoria',desc:'Guardar en memoria'},
+  {cmd:'/skills',desc:'Listar skills'},
+  {cmd:'/status',desc:'Estado del sistema'},
+  {cmd:'/exportar',desc:'Exportar conversación'},
+  {cmd:'/ayuda',desc:'Mostrar ayuda de comandos'}
+];
+
+// ===== BONIChat =====
+class BONIChat{
+  constructor(){
+    this.convId=null;
+    this.mensajes=[];
+    this.enviando=false;
+    this.streamId=null;
+    this.modelo=BONIConfig.get('modelo','boni-rapido:latest');
+    this.modo='chat';
+    this.ttsActivo=BONIConfig.get('tts',true);
+    this.stmActivo=BONIConfig.get('stm',true);
+    this.numCtx=BONIConfig.get('numCtx',2048);
+    this.numPredict=BONIConfig.get('numPredict',512);
+    this.temperature=null; // null = usar AutoTune
+    try{this.voice=new VoiceInput()}catch(e){this.voice={toggle:()=>{},disponible:false,iniciar:()=>{},detener:()=>{}}}
+    this.voice.onResult=t=>{
+      let input=document.getElementById('chatInput');
+      if(input)input.value=t;
+      this.ajustarTextarea();
+      this.enviar();
+    };
+    this.voice.onEnd=()=>{document.getElementById('micBtn').classList.remove('recording')};
+    this.iniciado=false;
+  }
+  iniciar(){
+    if(this.iniciado)return;
+    this.iniciado=true;
+    this.nuevaConversacion();
+    var _this=this;
+    document.getElementById('chatInput').oninput=function(){_this.ajustarTextarea()};
+    document.getElementById('panelTabs').addEventListener('click',e=>{
+      let tab=e.target.closest('.panel-tab');
+      if(tab)this._cambiarTab(tab.dataset.tab);
+    });
+    document.addEventListener('keydown',e=>{
+      if(e.ctrlKey&&e.key==='f'){e.preventDefault();openSearch()}
+      if(e.key==='Escape'){closeSearch();this._ocultarComandos()}
+    });
+    document.getElementById('searchOverlay').addEventListener('click',e=>{
+      if(e.target===e.currentTarget)closeSearch();
+    });
+    document.getElementById('searchInput').addEventListener('input',e=>buscarEnChat(e.target.value));
+    document.getElementById('modelSelect').addEventListener('change',e=>{
+      this.modelo=e.target.value;
+      BONIConfig.set('modelo',this.modelo);
+      this._actualizarLabels();
+    });
+    document.getElementById('modeSelect').addEventListener('change',e=>{
+      this.modo=e.target.value;
+      this._actualizarLabels();
+    });
+    this._healthCheckLoop();
+    this._renderizarSidebar();
+    this._renderizarPanelEstado();
+    this._actualizarLabels();
+    BONIConfig.detectarWSL();
+  }
+  nuevaConversacion(){
+    this.convId=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    this.mensajes=[];
+    ChatHistory.nueva(this.convId);
+    document.getElementById('messages').innerHTML='';
+    this._renderizarSidebar();
+  }
+  async enviar(){
+    if(this.enviando)return;
+    let input=document.getElementById('chatInput');
+    let texto=input.value.trim();
+    if(!texto)return;
+    input.value='';
+    this.ajustarTextarea();
+    this._ocultarComandos();
+    if(texto.startsWith('/')){if(this._procesarComando(texto))return}
+    this.enviando=true;
+    ChatHistory.agregarMensaje(this.convId,'user',texto);
+    this.mensajes.push({role:'user',content:texto});
+    this._renderizarSidebar();
+    let ui=UIController;
+    ui.agregarMensajeUsuario(texto);
+    ui.mostrarTyping(true);
+    document.getElementById('sendBtn').disabled=true;
+    document.getElementById('stopBtn').classList.remove('hidden');
+    let params=AutoTune.getParams(texto);
+    try{
+      if(this.modo==='godmode'){
+        await this._enviarGodmode(texto,params);
+      }else if(this.modo==='research'){
+        await this._enviarResearch(texto,params);
+      }else if(this.modo==='agent'){
+        await this._enviarAgent(texto,params);
+      }else{
+        await this._enviarNormal(texto,params);
+      }
+    }catch(e){ui.mostrarError('Error: '+e.message)}
+    ui.mostrarTyping(false);
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('stopBtn').classList.add('hidden');
+    this.enviando=false;
+  }
+  cancelar(){OllamaClient.cancelar();this.enviando=false;document.getElementById('sendBtn').disabled=false;document.getElementById('stopBtn').classList.add('hidden');UIController.mostrarTyping(false)}
+  async _enviarNormal(texto,params){
+    let ui=UIController;
+    let msgId=ui.agregarMensajeBONI();
+    let full='';
+    await OllamaClient.chat(this.modelo,this.mensajes,{temperature:this.temperature??params.temperature,top_p:params.top_p,num_ctx:this.numCtx,num_predict:this.numPredict},
+      token=>{full+=token;ui.actualizarStream(msgId,token)},
+      done=>{
+        ui.finalizarStream(msgId,done);
+        this.mensajes.push({role:'assistant',content:done});
+        ChatHistory.agregarMensaje(this.convId,'assistant',done);
+        if(this.ttsActivo)TTSClient.hablar(done);
+      },
+      err=>{ui.mostrarError(err)}
+    );
+  }
+  async _enviarGodmode(texto,params){
+    let ui=UIController;
+    ui.mostrarGodmodeLoading();
+    let resultados=await GodmodeLocal.consultarTodos(texto,params);
+    ui.mostrarGodmodeResultados(resultados);
+    let full=resultados.map(r=>`[${r.emoji} ${r.nombre}] (${r.tiempo}s):\n${r.texto}`).join('\n\n');
+    this.mensajes.push({role:'assistant',content:'[GODMODE]\n\n'+full});
+    ChatHistory.agregarMensaje(this.convId,'assistant','[GODMODE]\n\n'+full);
+    if(this.ttsActivo)TTSClient.hablar('GODMODE completado');
+  }
+  async _enviarResearch(texto,params){
+    let ui=UIController;
+    let msgId=ui.agregarMensajeBONI();
+    try{
+      let r=await fetch(JARVIS_URL+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'boni-research',messages:[{role:'user',content:texto}],
+          stream:true,
+          options:{temperature:params.temperature??.3,top_p:params.top_p??.85,num_ctx:4096}
+        }),
+        signal:AbortSignal.timeout(180000)
+      });
+      if(!r.ok){ui.mostrarError('Research error: '+r.status);return}
+      let reader=r.body.getReader();
+      let decoder=new TextDecoder();
+      let full='';
+      while(true){
+        let{done,value}=await reader.read();
+        if(done)break;
+        let chunk=decoder.decode(value,{stream:true});
+        for(let line of chunk.split('\n').filter(l=>l.trim()&&l.startsWith('data:'))){
+          try{
+            let d=JSON.parse(line.slice(5));
+            let c=d.choices?.[0]?.delta?.content||'';
+            if(c){full+=c;ui.actualizarStream(msgId,c)}
+          }catch(e){}
+        }
+      }
+      ui.finalizarStream(msgId,full);
+      this.mensajes.push({role:'assistant',content:full});
+      ChatHistory.agregarMensaje(this.convId,'assistant',full);
+      if(this.ttsActivo)TTSClient.hablar(full);
+    }catch(e){ui.mostrarError('Research error: '+e.message)}
+  }
+  async _enviarAgent(texto,params){
+    let ui=UIController;
+    let msgId=ui.agregarMensajeBONI();
+    try{
+      let r=await fetch(JARVIS_URL+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'boni-operative',messages:[{role:'user',content:texto}],
+          stream:true,options:{temperature:params.temperature??.7}
+        }),
+        signal:AbortSignal.timeout(180000)
+      });
+      if(!r.ok){ui.mostrarError('Agent error: '+r.status);return}
+      let reader=r.body.getReader();
+      let decoder=new TextDecoder();
+      let full='';
+      while(true){
+        let{done,value}=await reader.read();
+        if(done)break;
+        let chunk=decoder.decode(value,{stream:true});
+        for(let line of chunk.split('\n').filter(l=>l.trim()&&l.startsWith('data:'))){
+          try{
+            let d=JSON.parse(line.slice(5));
+            let c=d.choices?.[0]?.delta?.content||d.content||'';
+            if(c){full+=c;ui.actualizarStream(msgId,c)}
+          }catch(e){}
+        }
+      }
+      ui.finalizarStream(msgId,full);
+      this.mensajes.push({role:'assistant',content:full});
+      ChatHistory.agregarMensaje(this.convId,'assistant',full);
+      if(this.ttsActivo)TTSClient.hablar(full);
+    }catch(e){ui.mostrarError('Agent error: '+e.message)}
+  }
+  _procesarComando(texto){
+    let parts=texto.split(' ');
+    let cmd=parts[0].toLowerCase();
+    switch(cmd){
+      case '/godmode':document.getElementById('modeSelect').value='godmode';this.modo='godmode';this._actualizarLabels();return true;
+      case '/investigar':document.getElementById('modeSelect').value='research';this.modo='research';this._actualizarLabels();return true;
+      case '/agente':document.getElementById('modeSelect').value='agent';this.modo='agent';this._actualizarLabels();return true;
+      case '/ayuda':UIController.agregarMensajeBONI();UIController.finalizarStream('__ayuda',COMANDOS.map(c=>`**${c.cmd}** — ${c.desc}`).join('\n'));return true;
+      case '/status':this._mostrarEstado();return true;
+      case '/exportar':exportarChat();return true;
+      case '/skills':
+        SkillsManager.listar().then(skills=>{
+          let txt='Skills disponibles:\n'+skills.map(s=>`- ${s}`).join('\n');
+          UIController.agregarMensajeBONI();UIController.finalizarStream('__skills',txt);
+        });
+        return true;
+      default:return false;
+    }
+  }
+  _mostrarEstado(){
+    let msgs=document.getElementById('messages');
+    let d=document.createElement('div');d.className='msg boni';d.innerHTML='<div class="content"><p>Verificando...</p></div>';msgs.appendChild(d);
+    setTimeout(()=>{
+      Promise.all([
+        fetch(OLLAMA_URL+'/tags',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'✅':'❌').catch(()=>'❌'),
+        fetch(JARVIS_URL+'/health',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'✅':'❌').catch(()=>'❌'),
+        fetch(TTS_URL+'/health',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'✅':'❌').catch(()=>'❌'),
+        fetch('http://localhost:3000',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'✅':'❌').catch(()=>'❌')
+      ]).then(([o,j,t,w])=>{
+        d.innerHTML=`<div class="content">
+          <pre>Estado del Sistema:
+  Ollama :11434     ${o}
+  OpenJarvis :8000  ${j}
+  TTS :5050         ${t}
+  WebUI :3000       ${w}
+  Modelo: ${this.modelo}
+  Modo: ${this.modo}
+  num_ctx: ${this.numCtx}
+  num_predict: ${this.numPredict}
+  TTS: ${this.ttsActivo?'✅':'❌'}
+  STM: ${this.stmActivo?'✅':'❌'}
+          </pre></div>`;
+        d.querySelectorAll('pre code').forEach(b=>añadirBotonesCopy(b.parentElement));
+      });
+    },100);
+  }
+  _mostrarComandos(){
+    let menu=document.getElementById('cmdMenu');
+    let html=COMANDOS.map(c=>`<div class="cmd-item" onclick="BONI._insertarComando('${c.cmd}')"><span class="cmd-key">${c.cmd}</span><span class="cmd-desc">${c.desc}</span></div>`).join('');
+    menu.innerHTML=html;menu.classList.add('open');
+  }
+  _insertarComando(cmd){
+    document.getElementById('chatInput').value=cmd+' ';this.ajustarTextarea();this._ocultarComandos();document.getElementById('chatInput').focus();
+  }
+  _ocultarComandos(){document.getElementById('cmdMenu').classList.remove('open')}
+  _actualizarLabels(){
+    let info=MODOS[this.modo]||MODOS.chat;
+    document.getElementById('modeLabel').textContent=info.label;
+    document.getElementById('modelLabel').textContent=this.modelo;
+    document.getElementById('modeChip').textContent=info.chip;
+    document.getElementById('modeIndicator').textContent=info.chip;
+  }
+  async _healthCheckLoop(){
+    let check=async()=>{
+      let statuses=await Promise.all([
+        fetch(OLLAMA_URL+'/tags',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok).catch(()=>false),
+        fetch(JARVIS_URL+'/health',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok).catch(()=>false),
+        TTSClient.healthCheck()
+      ]);
+      document.getElementById('statusDot').className='status-dot '+(statuses[0]?'online':'');
+      if(document.querySelector('.panel-tab.active')?.dataset.tab==='status')this._renderizarPanelEstado();
+    };
+    check();
+    setInterval(check,30000);
+  }
+  _renderizarSidebar(){
+    let el=document.getElementById('chatList');
+    let convs=ChatHistory.getConversaciones();
+    el.innerHTML=convs.map(c=>`
+      <div class="chat-item${c.id===this.convId?' active':''}" onclick="BONI._cargarConv('${c.id}')">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.titulo}</span>
+        <button class="del-btn" onclick="event.stopPropagation();BONI._eliminarConv('${c.id}')">×</button>
+      </div>
+    `).join('');
+  }
+  _cargarConv(id){
+    let convs=ChatHistory.getConversaciones();
+    let conv=convs.find(c=>c.id===id);
+    if(!conv)return;
+    this.convId=id;
+    this.mensajes=conv.mensajes.map(m=>({role:m.rol,content:m.contenido}));
+    document.getElementById('messages').innerHTML='';
+    for(let m of conv.mensajes){
+      if(m.rol==='user')UIController.agregarMensajeUsuario(m.contenido);
+      else UIController.agregarMensajeBONICompleto(m.contenido);
+    }
+    this._renderizarSidebar();
+  }
+  _eliminarConv(id){
+    if(this.convId===id){this.nuevaConversacion();return}
+    ChatHistory.eliminar(id);
+    this._renderizarSidebar();
+  }
+  async _renderizarPanelEstado(){
+    let el=document.getElementById('panelContent');
+    let statuses=await Promise.all([
+      fetch(OLLAMA_URL+'/tags',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'green':'red').catch(()=>'red'),
+      fetch(JARVIS_URL+'/health',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'green':'red').catch(()=>'red'),
+      fetch('http://localhost:3000',{signal:AbortSignal.timeout(3000)}).then(r=>r.ok?'green':'red').catch(()=>'red'),
+      TTSClient.healthCheck().then(ok=>ok?'green':'yellow')
+    ]);
+    el.innerHTML=`<div class="section">
+      <div class="section-title">Estado del Stack</div>
+      <div class="status-grid">
+        <div class="status-item"><span class="dot ${statuses[0]}"></span><span class="name">Ollama</span><span class="val">:11434</span></div>
+        <div class="status-item"><span class="dot ${statuses[1]}"></span><span class="name">OpenJarvis</span><span class="val">:8000</span></div>
+        <div class="status-item"><span class="dot ${statuses[2]}"></span><span class="name">WebUI</span><span class="val">:3000</span></div>
+        <div class="status-item"><span class="dot ${statuses[3]}"></span><span class="name">TTS</span><span class="val">:5050</span></div>
+      </div>
+      <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="BONI._healthCheckLoop()">Verificar todo</button>
+    </div>
+    <div class="section">
+      <div class="section-title">Modelo</div>
+      <div style="font-size:12px;color:var(--text-primary)">${this.modelo}</div>
+      <div style="font-size:10px;color:var(--text-muted)">num_ctx: ${this.numCtx} · num_predict: ${this.numPredict}</div>
+    </div>`;
+  }
+  _cambiarTab(tab){
+    document.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector(`.panel-tab[data-tab="${tab}"]`).classList.add('active');
+    let el=document.getElementById('panelContent');
+    if(tab==='status')this._renderizarPanelEstado();
+    else if(tab==='skills')this._renderizarPanelSkills(el);
+    else if(tab==='tools')this._renderizarPanelTools(el);
+    else if(tab==='config')this._renderizarPanelConfig(el);
+  }
+  async _renderizarPanelSkills(el){
+    let skills=await SkillsManager.listar();
+    el.innerHTML=`<div class="section"><div class="section-title">Skills (${skills.length})</div>
+      <input class="skill-search" placeholder="Buscar skill..." oninput="BONI._buscarSkill(this.value)">
+      <div class="skill-list" id="skillList">${skills.slice(0,30).map(s=>`<div class="skill-item" onclick="BONI._usarSkill('${s}')">${s}</div>`).join('')}</div>
+    </div>`;
+  }
+  _buscarSkill(q){
+    let results=SkillsManager.buscar(q);
+    document.getElementById('skillList').innerHTML=results.slice(0,50).map(s=>`<div class="skill-item" onclick="BONI._usarSkill('${s}')">${s}</div>`).join('');
+  }
+  _usarSkill(skill){
+    let input=document.getElementById('chatInput');
+    input.value+=(input.value?' ':'')+'/usar '+skill+' ';this.ajustarTextarea();input.focus();
+  }
+  _renderizarPanelTools(el){
+    el.innerHTML=`<div class="section"><div class="section-title">Control PC</div>
+      <button class="btn btn-sm tool-btn" onclick="BONI._toolScreenshot()">📷 Tomar Screenshot</button>
+      <button class="btn btn-sm tool-btn" onclick="BONI._toolComando()">💻 Ejecutar Comando</button>
+    </div><div class="section"><div class="section-title">Sandbox</div>
+      <textarea style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:6px;border-radius:4px;font-size:12px;font-family:monospace;height:60px;resize:vertical" id="sandboxCode" placeholder="print('hola mundo')"></textarea>
+      <button class="btn btn-sm" style="width:100%;margin-top:4px" onclick="BONI._ejecutarSandbox()">▶ Ejecutar</button>
+      <div id="sandboxOutput" style="font-size:11px;color:var(--text-muted);margin-top:4px;white-space:pre-wrap;max-height:80px;overflow-y:auto"></div>
+    </div>`;
+  }
+  _renderizarPanelConfig(el){
+    el.innerHTML=`<div class="section"><div class="section-title">AutoTune</div>
+      <div class="toggle-row"><span>AutoTune</span><div class="toggle${this.temperature===null?' active':''}" onclick="BONI._toggleAutoTune(this)"></div></div>
+    </div><div class="section"><div class="section-title">STM</div>
+      <div class="toggle-row"><span>STM (limpiar respuestas)</span><div class="toggle${this.stmActivo?' active':''}" onclick="BONI._toggleSTM(this)"></div></div>
+    </div><div class="section"><div class="section-title">TTS</div>
+      <div class="toggle-row"><span>Voz</span><div class="toggle${this.ttsActivo?' active':''}" onclick="BONI._toggleTTS(this)"></div></div>
+      <button class="btn btn-sm" style="width:100%;margin-top:4px" onclick="TTSClient.hablar('Hola, soy BONI. Voz funcionando.')">🔊 Probar Voz</button>
+    </div><div class="section"><div class="section-title">Parámetros</div>
+      <div class="slider-group"><label>num_ctx <span id="ctxVal">${this.numCtx}</span></label><input type="range" min="512" max="8192" value="${this.numCtx}" step="512" oninput="BONI._setCtx(this.value)"></div>
+      <div class="slider-group"><label>num_predict <span id="predVal">${this.numPredict}</span></label><input type="range" min="128" max="2048" value="${this.numPredict}" step="128" oninput="BONI._setPred(this.value)"></div>
+      <div class="slider-group"><label>Temperature <span id="tempVal">${this.temperature!==null?this.temperature:'Auto'}</span></label><input type="range" min="1" max="100" value="${this.temperature!==null?this.temperature*100:50}" step="1" oninput="BONI._setTemp(this.value)"></div>
+    </div>`;
+  }
+  _toggleAutoTune(el){el.classList.toggle('active');this.temperature=el.classList.contains('active')?null:.7;BONIConfig.set('tempOverride',this.temperature);this._cambiarTab('config')}
+  _toggleSTM(el){el.classList.toggle('active');this.stmActivo=el.classList.contains('active');BONIConfig.set('stm',this.stmActivo)}
+  _toggleTTS(el){el.classList.toggle('active');this.ttsActivo=el.classList.contains('active');BONIConfig.set('tts',this.ttsActivo)}
+  _setCtx(v){this.numCtx=+v;document.getElementById('ctxVal').textContent=v;BONIConfig.set('numCtx',this.numCtx)}
+  _setPred(v){this.numPredict=+v;document.getElementById('predVal').textContent=v;BONIConfig.set('numPredict',this.numPredict)}
+  _setTemp(v){let t=+v/100;document.getElementById('tempVal').textContent=t.toFixed(2);this.temperature=t;BONIConfig.set('tempOverride',t)}
+  async _toolScreenshot(){
+    try{
+      let r=await fetch(JARVIS_URL+'/tools/screenshot',{method:'POST',signal:AbortSignal.timeout(10000)});
+      if(r.ok){let d=await r.json();UIController.agregarMensajeBONI();UIController.finalizarStream('__screenshot',`📷 Screenshot guardado: ${d.path||'OK'}`)}
+    }catch(e){UIController.mostrarError('Screenshot: '+e.message)}
+  }
+  async _toolComando(){
+    UIController.agregarMensajeUsuario('/screenshot');
+    UIController.agregarMensajeBONI();UIController.finalizarStream('__cmd','Ejecuta en la terminal de Windows el comando deseado.');
+  }
+  async _ejecutarSandbox(){
+    let codigo=document.getElementById('sandboxCode').value;
+    if(!codigo)return;
+    document.getElementById('sandboxOutput').textContent='Ejecutando...';
+    try{
+      let r=await fetch(SANDBOX_URL+'/ejecutar',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({codigo,nombre:'web_exec'}),
+        signal:AbortSignal.timeout(30000)
+      });
+      let d=await r.json();
+      document.getElementById('sandboxOutput').textContent=d.exito?d.output||'OK':'Error: '+(d.error||'desconocido');
+    }catch(e){document.getElementById('sandboxOutput').textContent='Error de conexión: '+e.message}
+  }
+  ajustarTextarea(){
+    let ta=document.getElementById('chatInput');
+    ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';
+    document.getElementById('tokenCount').textContent=Math.round(ta.value.length*1.3)+' tokens';
+  }
+}
+
+// ===== UIController =====
+class UIController{
+  static msgCount=0;
+  static agregarMensajeUsuario(texto){
+    let msgs=document.getElementById('messages');
+    let d=document.createElement('div');d.className='msg user';
+    d.innerHTML=`<div class="header"><span class="name">Tú</span><span class="time">${new Date().toLocaleTimeString()}</span></div><div class="content">${this._escape(texto)}</div>`;
+    msgs.appendChild(d);this._scrollAbajo();
+  }
+  static agregarMensajeBONI(){
+    this.msgCount++;
+    let id='msg_'+this.msgCount;
+    let msgs=document.getElementById('messages');
+    let d=document.createElement('div');d.className='msg boni';d.id=id;
+    d.innerHTML=`<div class="header"><span class="name">BONI</span><span class="time">${new Date().toLocaleTimeString()}</span></div><div class="content" id="${id}_c"></div><div class="msg-actions"><button onclick="copiarTexto('${id}')" title="Copiar">📋</button></div>`;
+    msgs.appendChild(d);this._scrollAbajo();
+    return id;
+  }
+  static agregarMensajeBONICompleto(texto){
+    let id=this.agregarMensajeBONI();
+    this.finalizarStream(id,texto);
+  }
+  static actualizarStream(id,token){
+    let el=document.getElementById(id+'_c');
+    if(!el)return;
+    el.textContent+=token;
+    this._scrollAbajo();
+  }
+  static finalizarStream(id,textoCompleto){
+    let el=document.getElementById(id+'_c');
+    if(!el)return;
+    if(id.startsWith('__')){
+      el.innerHTML='<p>'+this._escape(textoCompleto).replace(/\n/g,'<br>')+'</p>';return;
+    }
+    el.innerHTML=this._renderMarkdown(textoCompleto);
+    el.querySelectorAll('pre code').forEach(b=>añadirBotonesCopy(b.parentElement));
+    this._scrollAbajo();
+  }
+  static mostrarGodmodeLoading(){
+    let msgs=document.getElementById('messages');
+    let d=document.createElement('div');d.className='msg boni';d.id='gm_loading';
+    d.innerHTML='<div class="header"><span class="name">BONI · GODMODE</span></div><div class="content"><p>Consultando 4 modelos en paralelo...</p></div>';
+    msgs.appendChild(d);this._scrollAbajo();
+  }
+  static mostrarGodmodeResultados(resultados){
+    let el=document.getElementById('gm_loading');
+    if(!el){el=document.createElement('div');el.className='msg boni';document.getElementById('messages').appendChild(el)}
+    let cards=resultados.map(r=>`
+      <div class="godmode-card ${r.exito?'success':'fail'}">
+        <div class="gm-header">${r.emoji} ${r.nombre}</div>
+        <div class="gm-time">${r.tiempo}s · ${r.modelo||''}</div>
+        <div class="gm-text">${this._escape(r.texto.slice(0,200))}</div>
+      </div>
+    `).join('');
+    el.innerHTML=`<div class="header"><span class="name">BONI · GODMODE</span><span class="time">${new Date().toLocaleTimeString()}</span></div><div class="content"><div class="godmode-grid">${cards}</div></div>`;
+    this._scrollAbajo();
+  }
+  static mostrarTyping(v){
+    document.getElementById('typing').classList.toggle('hidden',!v);
+    if(v)this._scrollAbajo();
+  }
+  static mostrarError(msg){
+    let msgs=document.getElementById('messages');
+    let d=document.createElement('div');d.className='msg boni';
+    d.innerHTML=`<div class="header"><span class="name" style="color:var(--error)">Error</span></div><div class="content" style="color:var(--error)">${this._escape(msg)}</div>`;
+    msgs.appendChild(d);this._scrollAbajo();
+  }
+  static _renderMarkdown(texto){
+    // Escapar HTML primero
+    let t=this._escape(texto);
+    // Bloques de código ```
+    t=t.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code class="language-$1">$2</code></pre>');
+    // Código inline `
+    t=t.replace(/`([^`]+)`/g,'<code>$1</code>');
+    // Headers
+    t=t.replace(/^#### (.+)$/gm,'<h4>$1</h4>');
+    t=t.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+    t=t.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+    t=t.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+    // Tablas
+    t=t.replace(/^\|(.+)\|$/gm,function(m){let cells=m.slice(1,-1).split('|').map(c=>c.trim());return'<td>'+cells.join('</td><td>')+'</td>'});
+    // Listas
+    t=t.replace(/^- (.+)$/gm,'<li>$1</li>');
+    t=t.replace(/^\d+\. (.+)$/gm,'<li>$1</li>');
+    // Bold e italic
+    t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    t=t.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    // Blockquote
+    t=t.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
+    // Líneas horizontales
+    t=t.replace(/^---$/gm,'<hr>');
+    // Párrafos
+    t=t.replace(/\n\n/g,'</p><p>');
+    t='<p>'+t+'</p>';
+    // Limpiar párrafos vacíos
+    t=t.replace(/<p>\s*<\/p>/g,'');
+    // Agrupar <li> en <ul>
+    t=t.replace(/(<li>.*?<\/li>(\s*<li>.*?<\/li>)*)/g,'<ul>$1</ul>');
+    return t;
+  }
+  static _escape(t){let d=document.createElement('div');d.textContent=t;return d.innerHTML}
+  static _scrollAbajo(){
+    requestAnimationFrame(()=>{
+      let m=document.getElementById('messages');
+      m.scrollTop=m.scrollHeight;
+    });
+  }
+}
+
+// ===== Funciones globales =====
+function copiarTexto(id){
+  let el=document.getElementById(id+'_c');
+  if(!el)return;
+  let txt=el.textContent||'';
+  navigator.clipboard.writeText(txt).then(()=>{
+    let btn=el.closest('.msg')?.querySelector('.copy-btn,.msg-actions button');
+    if(btn){btn.textContent='✓';btn.classList.add('copied');setTimeout(()=>{btn.textContent='📋';btn.classList.remove('copied')},2000)}
+  }).catch(()=>{});
+}
+function añadirBotonesCopy(pre){
+  let btn=document.createElement('button');
+  btn.textContent='📋 Copiar';btn.className='btn btn-sm';btn.style.cssText='position:absolute;top:4px;right:4px;font-size:10px;padding:2px 6px';
+  btn.onclick=()=>{navigator.clipboard.writeText(pre.textContent||'');btn.textContent='✓';setTimeout(()=>btn.textContent='📋 Copiar',2000)};
+  pre.style.position='relative';pre.appendChild(btn);
+}
+function toggleSidebar(){document.getElementById('app').classList.toggle('sidebar-hidden')}
+function togglePanel(){
+  let app=document.getElementById('app');
+  app.classList.toggle('panel-open');
+  if(!app.classList.contains('panel-open'))app.classList.remove('sidebar-hidden');
+}
+function openSearch(){document.getElementById('searchOverlay').classList.add('open');document.getElementById('searchInput').value='';document.getElementById('searchResults').innerHTML='';document.getElementById('searchInput').focus()}
+function closeSearch(){document.getElementById('searchOverlay').classList.remove('open')}
+function buscarEnChat(q){
+  if(!q){document.getElementById('searchResults').innerHTML='';return}
+  let results=[];
+  document.querySelectorAll('.msg').forEach((msg,i)=>{
+    let txt=msg.textContent||'';
+    let idx=txt.toLowerCase().indexOf(q.toLowerCase());
+    if(idx>=0)results.push({idx,text:txt.slice(Math.max(0,idx-30),idx+60),msg,i});
+  });
+  let el=document.getElementById('searchResults');
+  el.innerHTML=results.slice(0,20).map(r=>`<div class="search-result" onclick="irAResultado(${r.i})"><div class="sr-msg">...${r.text}...</div><div class="sr-pos">#${r.i+1}</div></div>`).join('');
+}
+function irAResultado(idx){
+  let msgs=document.querySelectorAll('.msg');
+  if(msgs[idx]){msgs[idx].scrollIntoView({behavior:'smooth',block:'center'});msgs[idx].style.transition='background .3s';msgs[idx].style.background='rgba(74,155,199,.2)';setTimeout(()=>msgs[idx].style.background='',1500)}
+  closeSearch();
+}
+function exportarChat(){
+  let b=window.BONI;if(!b)return;
+  let md=ChatHistory.exportar(b.convId);
+  let blob=new Blob([md],{type:'text/markdown'});
+  let url=URL.createObjectURL(blob);
+  let a=document.createElement('a');a.href=url;a.download='boni_chat.md';a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== Inicialización =====
+(function(){
+  window.BONI=new BONIChat();
+  try{window.BONI.iniciar()}catch(e){console.error('BONI init:',e)}
+  // Attach handlers directly (reliable, no inline dependency)
+  var ci=document.getElementById('chatInput');
+  if(ci)ci.onkeydown=function(e){
+    e=e||window.event;
+    if((e.keyCode||e.which)===13&&!e.shiftKey){
+      if(e.preventDefault)e.preventDefault();
+      e.returnValue=false;
+      var b=window.BONI;
+      if(b&&typeof b.enviar==='function')b.enviar();
+      return false;
+    }
+    if((e.keyCode||e.which)===191&&!this.value)if(window.BONI&&window.BONI._mostrarComandos)window.BONI._mostrarComandos();
+  };
+  var send=document.getElementById('sendBtn');
+  if(send)send.onclick=function(){if(window.BONI)window.BONI.enviar()};
+  var stop=document.getElementById('stopBtn');
+  if(stop)stop.onclick=function(){if(window.BONI)window.BONI.cancelar()};
+  var mic=document.getElementById('micBtn');
+  if(mic)mic.onclick=function(){if(window.BONI&&window.BONI.voice)window.BONI.voice.toggle()};
+})();
+// Drag & drop
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',async e=>{
+  e.preventDefault();
+  for(let f of e.dataTransfer.files){
+    let ext=f.name.split('.').pop().toLowerCase();
+    if(['txt','py','js','html','md','json','csv'].includes(ext)){
+      let text=await f.text();
+      let input=document.getElementById('chatInput');
+      input.value+='```'+ext+'\n'+text+'\n```\n';
+      window.BONI&&window.BONI.ajustarTextarea();
+    }
+  }
+});
+</script>
+</body>
+</html>

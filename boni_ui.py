@@ -1,6 +1,7 @@
 import sys, os, json, time, threading, subprocess, tempfile, random, math, uuid, re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from boni_voz import VoiceInput
 
 import requests
 from PyQt6.QtWidgets import (
@@ -15,8 +16,9 @@ from PyQt6.QtGui import (
 )
 
 
+DIR = os.path.dirname(os.path.abspath(__file__))
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
-JARVIS_URL = os.environ.get("JARVIS_URL", "http://127.0.0.1:8000")
+JARVIS_URL = os.environ.get("JARVIS_URL") or os.environ.get("JARVIS_API", "http://127.0.0.1:8000").rstrip("/v1")
 JARVIS_KEY = os.environ.get("JARVIS_KEY", "boni-local-key")
 TTS_PORT = 5050
 MODELO_BONI = os.environ.get("BONI_MODEL", "boni-rapido:latest")
@@ -264,6 +266,9 @@ class BONIWindow(QWidget):
         self.history.cargar()
         self.conversation = self.history.obtener_contexto()
 
+        self.voice = VoiceInput(on_text=self._on_voice_text)
+        self.voice_active = False
+
         self.particles = []
         for _ in range(25):
             a = random.random() * math.pi * 2
@@ -303,6 +308,7 @@ class BONIWindow(QWidget):
 
         self._detect_wsl_ip()
         self._setup_tray()
+        QTimer.singleShot(500, self._auto_start_voice)
 
     def _setup_tray(self):
         pix = QPixmap(16, 16)
@@ -317,6 +323,8 @@ class BONIWindow(QWidget):
         a_webui.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("http://localhost:3000")))
         a_godmode = menu.addAction("GODMODE (Ctrl+G)")
         a_godmode.triggered.connect(self.toggle_godmode)
+        a_voice = menu.addAction(f"{'DESACTIVAR' if self.voice_active else 'ACTIVAR'} Voz siempre (Ctrl+M)")
+        a_voice.triggered.connect(self._toggle_mic)
         a_turbo = menu.addAction(f"{'DESACTIVAR' if self.turbo_mode else 'ACTIVAR'} Turbo (Ctrl+T)")
         a_turbo.triggered.connect(self.toggle_turbo)
         a_status = menu.addAction("Estado (F1)")
@@ -609,7 +617,7 @@ class BONIWindow(QWidget):
         f_icon = QFont("Segoe UI", 14)
         f_label = QFont("Consolas", 7)
         for sym, label, x in icons:
-            is_active = (label == "GODMODE" and self.godmode_active) or (label == "Turbo" and self.turbo_mode)
+            is_active = (label == "Voz" and self.voice_active) or (label == "GODMODE" and self.godmode_active) or (label == "Turbo" and self.turbo_mode)
             col = ACENTO if is_active else QColor(0x7E, 0xC8, 0xE3, 160)
             painter.setPen(QPen(col, 1))
             painter.setFont(f_icon)
@@ -657,6 +665,9 @@ class BONIWindow(QWidget):
             return
 
         if mods == Qt.KeyboardModifier.ControlModifier:
+            if key == Qt.Key.Key_M:
+                self._toggle_mic()
+                return
             if key == Qt.Key.Key_T:
                 self.toggle_turbo()
                 return
@@ -709,10 +720,22 @@ class BONIWindow(QWidget):
         if texto:
             self._send_message(texto)
 
+    def _on_voice_text(self, text):
+        QTimer.singleShot(0, lambda: self._send_message(text))
+
     def _toggle_mic(self):
-        if self.state == "idle":
-            self.set_state("listening")
+        if not self.voice_active:
+            self.voice_active = True
+            ok = self.voice.start()
+            if ok:
+                self.set_state("listening")
+                self.tray.showMessage("B.O.N.I.", "Voz activada - siempre escuchando", QSystemTrayIcon.MessageIcon.Information, 2000)
+            else:
+                self.voice_active = False
+                self.tray.showMessage("B.O.N.I.", "Voz no disponible (sin SAPI/Whisper)", QSystemTrayIcon.MessageIcon.Information, 2000)
         else:
+            self.voice_active = False
+            self.voice.stop()
             self.set_state("idle")
 
     def _send_message(self, texto):
@@ -850,6 +873,31 @@ class BONIWindow(QWidget):
         finally:
             QTimer.singleShot(2000, lambda: self.set_state("idle"))
 
+    def _auto_start_voice(self):
+        if not self.voice_active:
+            ok = self.voice.start()
+            if ok:
+                self.voice_active = True
+                self.set_state("listening")
+                QTimer.singleShot(3000, self._saludar_inicio)
+
+    def _saludar_inicio(self):
+        if self.wsl_ip == "172.17.0.1":
+            QTimer.singleShot(3000, self._saludar_inicio)
+            return
+        threading.Thread(target=self._decir_saludo, daemon=True).start()
+
+    def _decir_saludo(self):
+        try:
+            r = requests.post(f"http://{self.wsl_ip}:{TTS_PORT}/tts",
+                              json={"texto": "BONI en línea"}, timeout=5)
+            if r.status_code == 200:
+                self.tray.showMessage("B.O.N.I.", "Voz funcionando! \u2665",
+                                      QSystemTrayIcon.MessageIcon.Information, 2000)
+        except Exception:
+            self.tray.showMessage("B.O.N.I.", "TTS no disponible (puerto 5050)",
+                                  QSystemTrayIcon.MessageIcon.Information, 2500)
+
     def toggle_turbo(self):
         self.turbo_mode = not self.turbo_mode
         modelo_actual = BONI_TURBO_MODEL if self.turbo_mode else MODELO_BONI
@@ -873,6 +921,7 @@ class BONIWindow(QWidget):
 
         lines.append(f"Estado UI: {self.state.upper()}")
         lines.append(f"GODMODE: {'ACTIVO' if self.godmode_active else 'inactivo'}")
+        lines.append(f"Voz activa: {'SI' if self.voice_active else 'NO'} ({self.voice.mode})")
         lines.append(f"Turbo: {'ACTIVO' if self.turbo_mode else 'inactivo'}")
         modelo_actual = BONI_TURBO_MODEL if self.turbo_mode else MODELO_BONI
         lines.append(f"Modelo: {modelo_actual}")
@@ -942,7 +991,7 @@ class BONIWindow(QWidget):
 
     def _abrir_sandbox(self):
         try:
-            subprocess.Popen(["python", os.path.expanduser("~/Desktop/boni/boni_sandbox.py")],
+            subprocess.Popen(["python", os.path.join(DIR, "boni_sandbox.py")],
                              creationflags=subprocess.CREATE_NO_WINDOW)
         except Exception:
             pass
@@ -991,6 +1040,8 @@ class BONIWindow(QWidget):
             "QMenu { background: #05050F; color: #7EC8E3; border: 1px solid #1A3A5A; padding: 4px; }"
             "QMenu::item:selected { background: #1A3A5A; }"
         )
+        a_voice = menu.addAction(f"{'Desactivar' if self.voice_active else 'Activar'} Voz siempre")
+        a_voice.triggered.connect(self._toggle_mic)
         a_webui = menu.addAction("Abrir WebUI")
         a_webui.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("http://localhost:3000")))
         a_turbo = menu.addAction(f"{'Desactivar' if self.turbo_mode else 'Activar'} Turbo")
